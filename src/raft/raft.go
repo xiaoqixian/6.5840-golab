@@ -28,7 +28,6 @@ import (
 	"6.5840/labrpc"
 )
 
-
 // as each Raft peer becomes aware that successive log entries are
 // committed, the peer should send an ApplyMsg to the service (or
 // tester) on the same server, via the applyCh passed to Make(). set
@@ -50,28 +49,59 @@ type ApplyMsg struct {
 	SnapshotIndex int
 }
 
+type RoleEnum uint8
+const (
+	FOLLOWER RoleEnum = iota
+	CANDIDATE
+	LEADER
+)
+
+type Role interface {
+	role() RoleEnum
+
+	// This is supposed to be a short function
+	// as the roleLock is locked the whole time 
+	// during this function execution.
+	// So if you need to run a long time task, 
+	// use goroutine.
+	init()
+}
+
 // A Go object implementing a single Raft peer.
 type Raft struct {
 	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
 	persister *Persister          // Object to hold this peer's persisted state
 	me        int                 // this peer's index into peers[]
-	dead      int32               // set by Kill()
+	dead      atomic.Bool
 
-	// Your data here (3A, 3B, 3C).
-	// Look at the paper's Figure 2 for a description of what
-	// state a Raft server must maintain.
+	applyCh chan ApplyMsg
 
+	role Role
+	roleLock sync.RWMutex
+
+	logs *Logs
+}
+
+func (rf *Raft) transRole(f func(Role) Role) {
+	rf.roleLock.Lock()
+	defer rf.roleLock.Unlock()
+	
+	rf.role = f(rf.role)
+	rf.role.init()
 }
 
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
+	return -1, false // should not be fired.
+}
 
-	var term int
-	var isleader bool
-	// Your code here (3A).
-	return term, isleader
+// this function should be seen as atomic.
+func (rf *Raft) Role() RoleEnum {
+	rf.roleLock.RLock()
+	defer rf.roleLock.RUnlock()
+	return rf.role.role()
 }
 
 // save Raft's persistent state to stable storage,
@@ -123,22 +153,8 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 
 }
 
-
-// example RequestVote RPC arguments structure.
-// field names must start with capital letters!
-type RequestVoteArgs struct {
-	// Your data here (3A, 3B).
-}
-
-// example RequestVote RPC reply structure.
-// field names must start with capital letters!
-type RequestVoteReply struct {
-	// Your data here (3A).
-}
-
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	// Your code here (3A, 3B).
 }
 
 // example code to send a RequestVote RPC to a server.
@@ -207,17 +223,16 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // confusing debug output. any goroutine with a long-running loop
 // should call killed() to check whether it should stop.
 func (rf *Raft) Kill() {
-	atomic.StoreInt32(&rf.dead, 1)
+	rf.dead.Store(true)
 	// Your code here, if desired.
 }
 
 func (rf *Raft) killed() bool {
-	z := atomic.LoadInt32(&rf.dead)
-	return z == 1
+	return rf.dead.Load()
 }
 
 func (rf *Raft) ticker() {
-	for rf.killed() == false {
+	for !rf.killed() {
 
 		// Your code here (3A)
 		// Check if a leader election should be started.
@@ -241,10 +256,12 @@ func (rf *Raft) ticker() {
 // for any long-running work.
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
-	rf := &Raft{}
-	rf.peers = peers
-	rf.persister = persister
-	rf.me = me
+	rf := &Raft{
+		peers: peers,
+		persister: persister,
+		me: me,
+		applyCh: applyCh,
+	}
 
 	// Your initialization code here (3A, 3B, 3C).
 
@@ -253,7 +270,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
-
 
 	return rf
 }
