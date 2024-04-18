@@ -1,0 +1,2132 @@
+[Follower 0/0] Heartbeat timeout duration: 260ms
+[Follower 1/0] Heartbeat timeout duration: 208ms
+[Follower 2/0] Heartbeat timeout duration: 203ms
+Test (3A): initial election ...
+[Follower 2/0] Heartbeat timeout
+[Raft 2] Trans role from Follower to Candidate
+[Candidate 2/0] Start election
+[Follower 1/0] Receive RequestVote from 2
+[Follower 1/0] Reset Heartbeat timeout duration: 678ms
+[Follower 1/0] Grant vote to 2
+[Follower 0/0] Receive RequestVote from 2
+[Follower 0/0] Reset Heartbeat timeout duration: 625ms
+[Follower 0/0] Grant vote to 2
+[Candidate 2/1] Request vote from 1
+[Candidate 2/1] Request vote from 0
+[Raft 2] Trans role from Candidate to Leader
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/0] Receive AppendEntries request from [2:1]
+[Follower 0/0] Receive AppendEntries request from [2:1]
+[Follower 0/0] Reset Heartbeat timeout duration: 233ms
+[Follower 1/0] Reset Heartbeat timeout duration: 257ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 232ms
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 283ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 252ms
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 243ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 203ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 274ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 253ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 266ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 247ms
+[Follower 1/1] Reset Heartbeat timeout duration: 154ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 185ms
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 183ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 259ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 267ms
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 286ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 202ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 168ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 202ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 274ms
+[Follower 1/1] Reset Heartbeat timeout duration: 265ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 215ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 206ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 159ms
+[Follower 0/1] Reset Heartbeat timeout duration: 219ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 272ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 185ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 271ms
+[Follower 1/1] Reset Heartbeat timeout duration: 154ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 285ms
+[Follower 0/1] Reset Heartbeat timeout duration: 257ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 177ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 268ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 246ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 223ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 280ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 184ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 211ms
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 281ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 256ms
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 202ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 268ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 163ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 168ms
+[Follower 1/1] Reset Heartbeat timeout duration: 180ms
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 185ms
+[Follower 0/1] Reset Heartbeat timeout duration: 233ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 293ms
+[Follower 1/1] Reset Heartbeat timeout duration: 269ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 288ms
+[Follower 0/1] Reset Heartbeat timeout duration: 259ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 295ms
+[Follower 1/1] Reset Heartbeat timeout duration: 219ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 159ms
+[Follower 0/1] Reset Heartbeat timeout duration: 235ms
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 267ms
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 206ms
+  ... Passed --   3.1  3   60   11470    0
+[Follower 0/0] Heartbeat timeout duration: 206ms
+[Follower 1/0] Heartbeat timeout duration: 239ms
+[Follower 2/0] Heartbeat timeout duration: 201ms
+Test (3A): election after network failure ...
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Heartbeat timeout
+[Raft 1] Trans role from Follower to Candidate
+[Candidate 1/1] Start election
+[Candidate 1/2] Request vote from 0
+[Candidate 1/2] Request vote from 0
+[Candidate 1/2] Request vote from 2
+[Candidate 1/2] Request vote from 0
+[Candidate 1/2] Request vote from 2
+[Candidate 1/2] Request vote from 0
+[Candidate 1/2] Request vote from 0
+[Candidate 1/2] Request vote from 2
+[Candidate 1/2] Request vote from 2
+[Candidate 1/2] Request vote from 2
+[Follower 2/0] Heartbeat timeout
+[Raft 2] Trans role from Follower to Candidate
+[Candidate 2/0] Start election
+[Follower 0/0] Receive RequestVote from 2
+[Follower 0/0] Reset Heartbeat timeout duration: 598ms
+[Follower 0/0] Grant vote to 2
+[Follower 1/0] Receive RequestVote from 2
+[Follower 1/0] Reset Heartbeat timeout duration: 653ms
+[Follower 1/0] Grant vote to 2
+[Candidate 2/1] Request vote from 0
+[Candidate 2/1] Request vote from 1
+[Follower 0/1] Heartbeat timeout
+[Raft 0] Trans role from Follower to Candidate
+[Candidate 0/1] Start election
+[Candidate 0/2] Request vote from 2
+[Candidate 0/2] Request vote from 2
+[Candidate 0/2] Request vote from 1
+[Candidate 0/2] Request vote from 2
+[Candidate 0/2] Request vote from 1
+[Candidate 0/2] Request vote from 2
+[Candidate 0/2] Request vote from 2
+[Candidate 0/2] Request vote from 1
+[Candidate 0/2] Request vote from 1
+[Candidate 0/2] Request vote from 1
+[Raft 2] Trans role from Candidate to Leader
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/0] Receive AppendEntries request from [2:1]
+[Follower 0/0] Receive AppendEntries request from [2:1]
+[Follower 1/0] Reset Heartbeat timeout duration: 236ms
+[Follower 0/0] Reset Heartbeat timeout duration: 240ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 242ms
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 230ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Receive AppendEntries request from [2:1]
+[Follower 0/1] Receive AppendEntries request from [2:1]
+[Follower 1/1] Reset Heartbeat timeout duration: 259ms
+[Follower 0/1] Reset Heartbeat timeout duration: 272ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/1] Heartbeat timeout
+[Raft 1] Trans role from Follower to Candidate
+[Candidate 1/1] Start election
+[Follower 0/1] Receive RequestVote from 1
+[Follower 0/1] Reset Heartbeat timeout duration: 512ms
+[Follower 0/1] Grant vote to 1
+[Candidate 1/2] Request vote from 0
+[Raft 1] Trans role from Candidate to Leader
+[Leader 1/2] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Follower 0/1] Receive AppendEntries request from [1:2]
+[Follower 0/1] Reset Heartbeat timeout duration: 261ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 212ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 214ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 222ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/2] Receive AppendEntries request from [2:1]
+[Leader 1/2] AppendEntries request from [2, 1]
+[Leader 1/2] 2 is a stale leader
+[Follower 0/2] Reset Heartbeat timeout duration: 210ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 202ms
+[Leader 2/1] AppendEntries request from [1, 2]
+[Leader 2/1] Retire
+[Raft 2] Trans role from Leader to Follower
+[Follower 2/1] Heartbeat timeout duration: 235ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 2/1] Receive AppendEntries request from [1:2]
+[Follower 2/1] Reset Heartbeat timeout duration: 221ms
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 299ms
+[Follower 2/2] Receive AppendEntries request from [1:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 186ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] AppendEntries request from [2, 1]
+[Leader 1/2] 2 is a stale leader
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 219ms
+[Follower 2/2] Receive AppendEntries request from [1:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 191ms
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 2/2] Receive AppendEntries request from [1:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 256ms
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 239ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 2/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Receive AppendEntries request from [1:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 165ms
+[Follower 2/2] Reset Heartbeat timeout duration: 288ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/2] Heartbeat timeout
+[Raft 0] Trans role from Follower to Candidate
+[Candidate 0/2] Start election
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 2/2] Heartbeat timeout
+[Raft 2] Trans role from Follower to Candidate
+[Candidate 2/2] Start election
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Candidate 2/3] Request vote from 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Candidate 0/3] Request vote from 1
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Candidate 2/3] Request vote from 1
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Candidate 2/3] Request vote from 0
+[Candidate 2/3] Request vote from 0
+[Candidate 2/3] Defeated
+[Raft 2] Trans role from Candidate to Follower
+[Follower 2/3] Heartbeat timeout duration: 250ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Candidate 1/2] Request vote from 2
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 2/3] Heartbeat timeout
+[Raft 2] Trans role from Follower to Candidate
+[Candidate 2/3] Start election
+[Candidate 2/4] Request vote from 0
+[Raft 0] Trans role from Candidate to Follower
+[Follower 0/3] Heartbeat timeout duration: 181ms
+[Raft 2] Trans role from Candidate to Leader
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/3] Receive AppendEntries request from [2:4]
+[Follower 0/3] Reset Heartbeat timeout duration: 266ms
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/4] Receive AppendEntries request from [2:4]
+[Follower 0/4] Reset Heartbeat timeout duration: 268ms
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/4] Receive AppendEntries request from [2:4]
+[Follower 0/4] Reset Heartbeat timeout duration: 246ms
+[Leader 1/2] Send heartbeat to 2
+[Leader 1/2] Send heartbeat to 0
+[Follower 0/4] Receive AppendEntries request from [2:1]
+[Follower 0/4] Reset Heartbeat timeout duration: 285ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/4] Receive AppendEntries request from [1:2]
+[Follower 0/4] Reset Heartbeat timeout duration: 280ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/4] Receive AppendEntries request from [2:4]
+[Follower 0/4] Reset Heartbeat timeout duration: 280ms
+[Leader 1/2] AppendEntries request from [2, 4]
+[Leader 1/2] Retire
+[Raft 1] Trans role from Leader to Follower
+[Follower 1/2] Heartbeat timeout duration: 169ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/4] Receive AppendEntries request from [2:4]
+[Follower 1/2] Receive AppendEntries request from [2:4]
+[Follower 0/4] Reset Heartbeat timeout duration: 180ms
+[Follower 1/2] Reset Heartbeat timeout duration: 291ms
+[Follower 0/4] Receive AppendEntries request from [1:2]
+[Follower 0/4] Reset Heartbeat timeout duration: 288ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/4] Receive AppendEntries request from [1:2]
+[Follower 0/4] Reset Heartbeat timeout duration: 244ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 1/4] Receive AppendEntries request from [2:4]
+[Follower 0/4] Receive AppendEntries request from [2:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 257ms
+[Follower 0/4] Reset Heartbeat timeout duration: 206ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Follower 0/4] Receive AppendEntries request from [2:4]
+[Follower 0/4] Reset Heartbeat timeout duration: 243ms
+[Follower 1/4] Receive AppendEntries request from [2:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 218ms
+[Follower 0/4] Receive AppendEntries request from [1:2]
+[Follower 0/4] Reset Heartbeat timeout duration: 237ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 1/4] Receive AppendEntries request from [2:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 287ms
+[Follower 0/4] Receive AppendEntries request from [2:4]
+[Follower 0/4] Reset Heartbeat timeout duration: 223ms
+[Leader 2/4] AppendEntries request from [1, 2]
+[Leader 2/4] 1 is a stale leader
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+  ... Passed --   5.0  3  152   22880    0
+[Follower 0/0] Heartbeat timeout duration: 230ms
+[Follower 1/0] Heartbeat timeout duration: 193ms
+[Follower 2/0] Heartbeat timeout duration: 279ms
+[Follower 3/0] Heartbeat timeout duration: 242ms
+[Follower 4/0] Heartbeat timeout duration: 198ms
+[Follower 5/0] Heartbeat timeout duration: 280ms
+[Follower 6/0] Heartbeat timeout duration: 229ms
+Test (3A): multiple elections ...
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/4] Heartbeat timeout
+[Raft 0] Trans role from Follower to Candidate
+[Candidate 0/4] Start election
+[Candidate 0/5] Request vote from 2
+[Candidate 0/5] Request vote from 2
+[Candidate 0/5] Request vote from 2
+[Candidate 0/5] Request vote from 1
+[Candidate 0/5] Request vote from 2
+[Candidate 0/5] Request vote from 2
+[Candidate 0/5] Request vote from 1
+[Candidate 0/5] Request vote from 1
+[Candidate 0/5] Request vote from 1
+[Candidate 0/5] Request vote from 1
+[Follower 1/0] Heartbeat timeout
+[Raft 1] Trans role from Follower to Candidate
+[Candidate 1/0] Start election
+[Follower 0/0] Receive RequestVote from 1
+[Follower 0/0] Reset Heartbeat timeout duration: 657ms
+[Follower 0/0] Grant vote to 1
+[Follower 4/0] Receive RequestVote from 1
+[Follower 2/0] Receive RequestVote from 1
+[Follower 4/0] Reset Heartbeat timeout duration: 604ms
+[Follower 2/0] Reset Heartbeat timeout duration: 565ms
+[Follower 4/0] Grant vote to 1
+[Follower 2/0] Grant vote to 1
+[Follower 5/0] Receive RequestVote from 1
+[Follower 5/0] Reset Heartbeat timeout duration: 683ms
+[Follower 5/0] Grant vote to 1
+[Candidate 1/1] Request vote from 0
+[Candidate 1/1] Request vote from 4
+[Follower 3/0] Receive RequestVote from 1
+[Candidate 1/1] Request vote from 2
+[Follower 3/0] Reset Heartbeat timeout duration: 634ms
+[Follower 3/0] Grant vote to 1
+[Candidate 1/1] Request vote from 5
+[Follower 6/0] Receive RequestVote from 1
+[Follower 6/0] Reset Heartbeat timeout duration: 501ms
+[Follower 6/0] Grant vote to 1
+[Candidate 1/1] Request vote from 3
+[Candidate 1/1] Request vote from 6
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Raft 1] Trans role from Candidate to Leader
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 2
+[Follower 4/0] Receive AppendEntries request from [1:1]
+[Follower 3/0] Receive AppendEntries request from [1:1]
+[Leader 1/1] Send heartbeat to 5
+[Follower 3/0] Reset Heartbeat timeout duration: 251ms
+[Follower 2/0] Receive AppendEntries request from [1:1]
+[Follower 2/0] Reset Heartbeat timeout duration: 249ms
+[Follower 0/0] Receive AppendEntries request from [1:1]
+[Follower 0/0] Reset Heartbeat timeout duration: 212ms
+[Follower 4/0] Reset Heartbeat timeout duration: 205ms
+[Follower 5/0] Receive AppendEntries request from [1:1]
+[Follower 5/0] Reset Heartbeat timeout duration: 248ms
+[Follower 6/0] Receive AppendEntries request from [1:1]
+[Follower 6/0] Reset Heartbeat timeout duration: 175ms
+[Follower 1/4] Heartbeat timeout
+[Raft 1] Trans role from Follower to Candidate
+[Candidate 1/4] Start election
+[Candidate 1/5] Request vote from 2
+[Candidate 1/5] Request vote from 2
+[Candidate 1/5] Request vote from 2
+[Candidate 1/5] Request vote from 2
+[Candidate 1/5] Request vote from 2
+[Candidate 1/5] Request vote from 0
+[Candidate 1/5] Request vote from 0
+[Candidate 1/5] Request vote from 0
+[Candidate 1/5] Request vote from 0
+[Candidate 1/5] Request vote from 0
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Follower 6/1] Receive AppendEntries request from [1:1]
+[Follower 4/1] Receive AppendEntries request from [1:1]
+[Follower 6/1] Reset Heartbeat timeout duration: 243ms
+[Follower 4/1] Reset Heartbeat timeout duration: 156ms
+[Leader 1/1] Send heartbeat to 0
+[Follower 5/1] Receive AppendEntries request from [1:1]
+[Follower 5/1] Reset Heartbeat timeout duration: 270ms
+[Follower 3/1] Receive AppendEntries request from [1:1]
+[Follower 3/1] Reset Heartbeat timeout duration: 217ms
+[Leader 1/1] Send heartbeat to 2
+[Follower 0/1] Receive AppendEntries request from [1:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 240ms
+[Follower 2/1] Receive AppendEntries request from [1:1]
+[Follower 2/1] Reset Heartbeat timeout duration: 195ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Follower 6/1] Receive AppendEntries request from [1:1]
+[Follower 6/1] Reset Heartbeat timeout duration: 254ms
+[Follower 4/1] Receive AppendEntries request from [1:1]
+[Follower 4/1] Reset Heartbeat timeout duration: 223ms
+[Leader 1/1] Send heartbeat to 0
+[Follower 3/1] Receive AppendEntries request from [1:1]
+[Leader 1/1] Send heartbeat to 2
+[Follower 3/1] Reset Heartbeat timeout duration: 187ms
+[Follower 5/1] Receive AppendEntries request from [1:1]
+[Follower 5/1] Reset Heartbeat timeout duration: 181ms
+[Follower 0/1] Receive AppendEntries request from [1:1]
+[Follower 2/1] Receive AppendEntries request from [1:1]
+[Follower 0/1] Reset Heartbeat timeout duration: 266ms
+[Follower 2/1] Reset Heartbeat timeout duration: 295ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 5
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 5/1] Heartbeat timeout
+[Raft 5] Trans role from Follower to Candidate
+[Candidate 5/1] Start election
+[Follower 4/1] Receive RequestVote from 5
+[Follower 3/1] Receive RequestVote from 5
+[Follower 0/1] Receive RequestVote from 5
+[Follower 3/1] Reset Heartbeat timeout duration: 537ms
+[Follower 0/1] Reset Heartbeat timeout duration: 548ms
+[Follower 2/1] Receive RequestVote from 5
+[Follower 3/1] Grant vote to 5
+[Follower 2/1] Reset Heartbeat timeout duration: 536ms
+[Follower 2/1] Grant vote to 5
+[Follower 0/1] Grant vote to 5
+[Follower 4/1] Reset Heartbeat timeout duration: 583ms
+[Follower 4/1] Grant vote to 5
+[Candidate 5/2] Request vote from 2
+[Candidate 5/2] Request vote from 0
+[Candidate 5/2] Request vote from 3
+[Candidate 5/2] Request vote from 4
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Raft 5] Trans role from Candidate to Leader
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 2
+[Follower 3/1] Receive AppendEntries request from [5:2]
+[Follower 2/1] Receive AppendEntries request from [5:2]
+[Follower 3/1] Reset Heartbeat timeout duration: 155ms
+[Follower 0/1] Receive AppendEntries request from [5:2]
+[Follower 0/1] Reset Heartbeat timeout duration: 186ms
+[Follower 2/1] Reset Heartbeat timeout duration: 200ms
+[Follower 4/1] Receive AppendEntries request from [5:2]
+[Follower 4/1] Reset Heartbeat timeout duration: 181ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 6/1] Heartbeat timeout
+[Raft 6] Trans role from Follower to Candidate
+[Candidate 6/1] Start election
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 3
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 0/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Reset Heartbeat timeout duration: 293ms
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 161ms
+[Follower 0/2] Reset Heartbeat timeout duration: 179ms
+[Follower 2/2] Reset Heartbeat timeout duration: 269ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 2
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 3
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 180ms
+[Follower 3/2] Reset Heartbeat timeout duration: 266ms
+[Follower 4/2] Reset Heartbeat timeout duration: 273ms
+[Follower 0/2] Receive AppendEntries request from [5:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 198ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 5
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Follower 0/2] Receive AppendEntries request from [5:2]
+[Follower 0/2] Reset Heartbeat timeout duration: 196ms
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Reset Heartbeat timeout duration: 156ms
+[Follower 2/2] Reset Heartbeat timeout duration: 291ms
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 233ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 2
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 295ms
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 274ms
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Reset Heartbeat timeout duration: 182ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 2
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/2] Heartbeat timeout
+[Raft 0] Trans role from Follower to Candidate
+[Candidate 0/2] Start election
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Reset Heartbeat timeout duration: 255ms
+[Follower 2/2] Reset Heartbeat timeout duration: 277ms
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 189ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 5
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 224ms
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Reset Heartbeat timeout duration: 254ms
+[Follower 3/2] Reset Heartbeat timeout duration: 182ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 5
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 6
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 243ms
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 294ms
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Reset Heartbeat timeout duration: 180ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 5
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 4
+[Follower 4/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 4/2] Reset Heartbeat timeout duration: 167ms
+[Follower 2/2] Reset Heartbeat timeout duration: 278ms
+[Follower 3/2] Reset Heartbeat timeout duration: 217ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Candidate 0/3] Request vote from 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 1
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 278ms
+[Leader 5/2] Send heartbeat to 3
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 262ms
+[Raft 6] Trans role from Candidate to Follower
+[Follower 6/2] Heartbeat timeout duration: 160ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 5
+[Follower 6/2] Receive AppendEntries request from [5:2]
+[Follower 6/2] Reset Heartbeat timeout duration: 172ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 4/2] Heartbeat timeout
+[Raft 4] Trans role from Follower to Candidate
+[Candidate 4/2] Start election
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Candidate 4/3] Request vote from 5
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 2
+[Follower 6/2] Receive AppendEntries request from [5:2]
+[Follower 6/2] Reset Heartbeat timeout duration: 271ms
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 176ms
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 257ms
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 3
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 276ms
+[Follower 6/2] Receive AppendEntries request from [5:2]
+[Follower 6/2] Reset Heartbeat timeout duration: 179ms
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 229ms
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 5
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 6/2] Receive AppendEntries request from [5:2]
+[Follower 6/2] Reset Heartbeat timeout duration: 297ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Follower 6/2] Receive AppendEntries request from [5:2]
+[Follower 6/2] Reset Heartbeat timeout duration: 249ms
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 155ms
+[Leader 5/2] Send heartbeat to 1
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 207ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 1
+[Follower 3/2] Receive AppendEntries request from [5:2]
+[Follower 6/2] Receive AppendEntries request from [5:2]
+[Follower 3/2] Reset Heartbeat timeout duration: 296ms
+[Follower 6/2] Reset Heartbeat timeout duration: 245ms
+[Follower 2/2] Receive AppendEntries request from [5:2]
+[Follower 2/2] Reset Heartbeat timeout duration: 220ms
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 1
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 5
+[Follower 6/2] Receive AppendEntries request from [1:1]
+[Follower 6/2] Reset Heartbeat timeout duration: 262ms
+[Follower 2/2] Receive AppendEntries request from [1:1]
+[Follower 2/2] Reset Heartbeat timeout duration: 189ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 0/3] Request vote from 5
+[Candidate 6/2] Request vote from 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 2
+[Follower 6/2] Receive AppendEntries request from [1:1]
+[Follower 6/2] Reset Heartbeat timeout duration: 223ms
+[Follower 2/2] Receive AppendEntries request from [1:1]
+[Follower 2/2] Reset Heartbeat timeout duration: 185ms
+[Follower 2/2] Receive AppendEntries request from [1:1]
+[Follower 2/2] Reset Heartbeat timeout duration: 279ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 3/2] Heartbeat timeout
+[Raft 3] Trans role from Follower to Candidate
+[Candidate 3/2] Start election
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Follower 2/2] Receive AppendEntries request from [1:1]
+[Follower 2/2] Reset Heartbeat timeout duration: 182ms
+[Follower 6/2] Receive AppendEntries request from [1:1]
+[Follower 6/2] Reset Heartbeat timeout duration: 295ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 5/2] Request vote from 6
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 5
+[Follower 6/2] Receive AppendEntries request from [1:1]
+[Follower 6/2] Reset Heartbeat timeout duration: 206ms
+[Follower 2/2] Receive AppendEntries request from [1:1]
+[Follower 2/2] Reset Heartbeat timeout duration: 215ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 6/2] Receive AppendEntries request from [1:1]
+[Follower 6/2] Reset Heartbeat timeout duration: 172ms
+[Candidate 0/3] Request vote from 5
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 0
+[Follower 6/2] Receive AppendEntries request from [1:1]
+[Follower 6/2] Reset Heartbeat timeout duration: 176ms
+[Leader 1/1] Send heartbeat to 2
+[Follower 2/2] Receive AppendEntries request from [1:1]
+[Follower 2/2] Reset Heartbeat timeout duration: 292ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 0/3] Request vote from 2
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 1
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 2/4] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Follower 6/2] Heartbeat timeout
+[Raft 6] Trans role from Follower to Candidate
+[Candidate 6/2] Start election
+[Candidate 6/3] Request vote from 3
+[Candidate 6/3] Defeated
+[Candidate 6/3] Request vote from 0
+[Candidate 6/3] Defeated
+[Candidate 6/3] Request vote from 4
+[Candidate 6/3] Defeated
+[Raft 6] Trans role from Candidate to Follower
+[Follower 6/3] Heartbeat timeout duration: 187ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 1
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 6/3] Request vote from 1
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Follower 2/2] Heartbeat timeout
+[Raft 2] Trans role from Follower to Candidate
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Candidate 2/2] Start election
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 2
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 2/3] Request vote from 3
+[Follower 6/3] Heartbeat timeout
+[Raft 6] Trans role from Follower to Candidate
+[Candidate 6/3] Start election
+[Candidate 6/4] Request vote from 4
+[Candidate 6/4] Request vote from 3
+[Candidate 6/4] Request vote from 0
+[Raft 3] Trans role from Candidate to Follower
+[Follower 3/3] Heartbeat timeout duration: 248ms
+[Raft 4] Trans role from Candidate to Follower
+[Follower 4/3] Heartbeat timeout duration: 218ms
+[Raft 0] Trans role from Candidate to Follower
+[Follower 0/3] Heartbeat timeout duration: 225ms
+[Raft 6] Trans role from Candidate to Leader
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Follower 3/3] Receive AppendEntries request from [6:4]
+[Follower 3/3] Reset Heartbeat timeout duration: 152ms
+[Follower 0/3] Receive AppendEntries request from [6:4]
+[Follower 4/3] Receive AppendEntries request from [6:4]
+[Follower 0/3] Reset Heartbeat timeout duration: 277ms
+[Follower 4/3] Reset Heartbeat timeout duration: 298ms
+[Candidate 6/3] Request vote from 5
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/1] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 5
+[Leader 1/1] Send heartbeat to 3
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 2/3] Request vote from 0
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 1
+[Follower 3/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 0/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 165ms
+[Follower 0/4] Reset Heartbeat timeout duration: 225ms
+[Follower 3/4] Reset Heartbeat timeout duration: 270ms
+[Candidate 5/2] Request vote from 1
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 1
+[Leader 1/1] Send heartbeat to 6
+[Leader 1/1] Send heartbeat to 2
+[Leader 1/1] Send heartbeat to 0
+[Leader 1/1] Send heartbeat to 4
+[Leader 1/1] Send heartbeat to 3
+[Leader 1/1] Send heartbeat to 5
+[Candidate 3/3] Request vote from 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 3/4] Receive AppendEntries request from [1:1]
+[Follower 3/4] Reset Heartbeat timeout duration: 163ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 4
+[Leader 1/1] AppendEntries request from [6, 4]
+[Follower 3/4] Receive AppendEntries request from [6:4]
+[Follower 3/4] Reset Heartbeat timeout duration: 231ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 155ms
+[Leader 1/1] Retire
+[Raft 1] Trans role from Leader to Follower
+[Follower 1/1] Heartbeat timeout duration: 235ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 1
+[Raft 2] Trans role from Candidate to Follower
+[Follower 2/3] Heartbeat timeout duration: 279ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 2/3] Receive AppendEntries request from [1:1]
+[Follower 2/3] Reset Heartbeat timeout duration: 220ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 4
+[Follower 3/4] Receive AppendEntries request from [6:4]
+[Follower 3/4] Reset Heartbeat timeout duration: 168ms
+[Follower 2/3] Receive AppendEntries request from [6:4]
+[Follower 1/1] Receive AppendEntries request from [6:4]
+[Follower 2/3] Reset Heartbeat timeout duration: 297ms
+[Follower 1/1] Reset Heartbeat timeout duration: 157ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 264ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 1
+[Follower 0/4] Heartbeat timeout
+[Raft 0] Trans role from Follower to Candidate
+[Candidate 0/4] Start election
+[Candidate 4/3] Request vote from 6
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 3/4] Receive AppendEntries request from [1:1]
+[Follower 3/4] Reset Heartbeat timeout duration: 244ms
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Follower 3/4] Receive AppendEntries request from [1:1]
+[Follower 3/4] Reset Heartbeat timeout duration: 207ms
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 196ms
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 176ms
+[Follower 3/4] Receive AppendEntries request from [6:4]
+[Follower 3/4] Reset Heartbeat timeout duration: 262ms
+[Leader 6/4] Send heartbeat to 4
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 276ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 0
+[Candidate 6/2] Request vote from 3
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 6/4] Request vote from 5
+[Follower 2/4] Receive AppendEntries request from [1:1]
+[Follower 2/4] Reset Heartbeat timeout duration: 187ms
+[Follower 4/4] Receive AppendEntries request from [1:1]
+[Follower 4/4] Reset Heartbeat timeout duration: 205ms
+[Follower 2/4] Receive AppendEntries request from [1:1]
+[Follower 2/4] Reset Heartbeat timeout duration: 157ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 272ms
+[Leader 6/4] Send heartbeat to 4
+[Follower 3/4] Receive AppendEntries request from [6:4]
+[Follower 3/4] Reset Heartbeat timeout duration: 299ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 254ms
+[Follower 4/4] Reset Heartbeat timeout duration: 287ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 293ms
+[Leader 6/4] AppendEntries request from [1, 1]
+[Leader 6/4] 1 is a stale leader
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 1
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 272ms
+[Follower 3/4] Receive AppendEntries request from [6:4]
+[Follower 3/4] Reset Heartbeat timeout duration: 247ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 168ms
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 156ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 2/4] Request vote from 1
+[Leader 6/4] AppendEntries request from [1, 1]
+[Leader 6/4] 1 is a stale leader
+[Candidate 6/4] Request vote from 2
+[Candidate 2/3] Request vote from 5
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 3
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 268ms
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 219ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 283ms
+[Follower 3/4] Receive AppendEntries request from [6:4]
+[Follower 3/4] Reset Heartbeat timeout duration: 248ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/2] Send heartbeat to 6
+[Leader 5/2] Send heartbeat to 2
+[Leader 5/2] Send heartbeat to 4
+[Leader 5/2] Send heartbeat to 3
+[Leader 5/2] Send heartbeat to 1
+[Leader 5/2] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 1/4] Receive AppendEntries request from [5:2]
+[Follower 1/4] Reset Heartbeat timeout duration: 225ms
+[Candidate 6/3] Request vote from 2
+[Follower 2/4] Receive AppendEntries request from [1:1]
+[Follower 2/4] Reset Heartbeat timeout duration: 238ms
+[Candidate 0/3] Request vote from 3
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 5/2] AppendEntries request from [6, 4]
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 187ms
+[Leader 5/2] Retire
+[Raft 5] Trans role from Leader to Follower
+[Follower 5/2] Heartbeat timeout duration: 195ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 250ms
+[Follower 2/4] Receive AppendEntries request from [5:2]
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 215ms
+[Follower 1/4] Reset Heartbeat timeout duration: 167ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 221ms
+[Follower 2/4] Receive AppendEntries request from [5:2]
+[Follower 2/4] Reset Heartbeat timeout duration: 265ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 1
+[Follower 5/2] Receive AppendEntries request from [6:4]
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 261ms
+[Leader 6/4] Send heartbeat to 4
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 5/2] Reset Heartbeat timeout duration: 212ms
+[Follower 1/4] Reset Heartbeat timeout duration: 263ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 268ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 3/4] Heartbeat timeout
+[Raft 3] Trans role from Follower to Candidate
+[Candidate 3/4] Start election
+[Follower 4/4] Receive AppendEntries request from [5:2]
+[Follower 4/4] Reset Heartbeat timeout duration: 179ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 0
+[Follower 5/4] Receive AppendEntries request from [6:4]
+[Follower 5/4] Reset Heartbeat timeout duration: 165ms
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 211ms
+[Leader 6/4] Send heartbeat to 1
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 240ms
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 166ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 1/4] Receive AppendEntries request from [5:2]
+[Follower 1/4] Reset Heartbeat timeout duration: 215ms
+[Leader 6/4] AppendEntries request from [5, 2]
+[Leader 6/4] 5 is a stale leader
+[Follower 1/4] Receive AppendEntries request from [5:2]
+[Follower 1/4] Reset Heartbeat timeout duration: 292ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 1
+[Follower 5/4] Receive AppendEntries request from [6:4]
+[Follower 5/4] Reset Heartbeat timeout duration: 277ms
+[Follower 2/4] Receive AppendEntries request from [6:4]
+[Follower 2/4] Reset Heartbeat timeout duration: 151ms
+[Follower 4/4] Receive AppendEntries request from [6:4]
+[Follower 4/4] Reset Heartbeat timeout duration: 264ms
+[Follower 1/4] Receive AppendEntries request from [6:4]
+[Follower 1/4] Reset Heartbeat timeout duration: 267ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 6/4] AppendEntries request from [5, 2]
+[Leader 6/4] 5 is a stale leader
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 5/4] Receive AppendEntries request from [1:1]
+[Follower 5/4] Reset Heartbeat timeout duration: 176ms
+[Follower 4/4] Receive AppendEntries request from [5:2]
+[Follower 4/4] Reset Heartbeat timeout duration: 164ms
+[Candidate 0/3] Request vote from 1
+[Follower 5/4] Receive AppendEntries request from [1:1]
+[Follower 5/4] Reset Heartbeat timeout duration: 199ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 4
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 2/4] Heartbeat timeout
+[Raft 2] Trans role from Follower to Candidate
+[Candidate 2/4] Start election
+[Follower 1/4] Receive AppendEntries request from [5:2]
+[Follower 1/4] Reset Heartbeat timeout duration: 170ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Candidate 2/5] Request vote from 5
+[Follower 4/4] Heartbeat timeout
+[Raft 4] Trans role from Follower to Candidate
+[Candidate 4/4] Start election
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 3/3] Request vote from 0
+[Candidate 4/3] Request vote from 2
+[Follower 5/4] Heartbeat timeout
+[Raft 5] Trans role from Follower to Candidate
+[Candidate 5/4] Start election
+[Follower 1/4] Receive RequestVote from 5
+[Follower 1/4] Reset Heartbeat timeout duration: 674ms
+[Follower 1/4] Grant vote to 5
+[Candidate 5/5] Request vote from 3
+[Candidate 5/5] Defeated
+[Candidate 5/5] Request vote from 0
+[Candidate 5/5] Request vote from 1
+[Candidate 5/5] Defeated
+[Candidate 5/5] Request vote from 6
+[Raft 5] Trans role from Candidate to Follower
+[Follower 5/5] Heartbeat timeout duration: 175ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 3
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 5/5] Receive AppendEntries request from [1:1]
+[Follower 5/5] Reset Heartbeat timeout duration: 199ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 2/3] Request vote from 1
+[Candidate 2/5] Request vote from 4
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 4
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 1
+[Follower 1/4] Receive AppendEntries request from [5:2]
+[Follower 1/4] Reset Heartbeat timeout duration: 297ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 5/5] Heartbeat timeout
+[Raft 5] Trans role from Follower to Candidate
+[Candidate 5/5] Start election
+[Candidate 5/6] Request vote from 3
+[Follower 1/4] Receive RequestVote from 5
+[Follower 1/4] Reset Heartbeat timeout duration: 514ms
+[Follower 1/4] Grant vote to 5
+[Candidate 5/6] Request vote from 0
+[Candidate 5/6] Request vote from 1
+[Follower 1/4] Receive AppendEntries request from [5:2]
+[Follower 1/4] Reset Heartbeat timeout duration: 229ms
+[Raft 3] Trans role from Candidate to Follower
+[Follower 3/5] Heartbeat timeout duration: 191ms
+[Raft 0] Trans role from Candidate to Follower
+[Follower 0/5] Heartbeat timeout duration: 297ms
+[Raft 5] Trans role from Candidate to Leader
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 4
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 1
+[Follower 3/5] Receive AppendEntries request from [5:6]
+[Follower 3/5] Reset Heartbeat timeout duration: 286ms
+[Follower 0/5] Receive AppendEntries request from [5:6]
+[Follower 1/4] Receive AppendEntries request from [5:6]
+[Follower 0/5] Reset Heartbeat timeout duration: 151ms
+[Follower 1/4] Reset Heartbeat timeout duration: 211ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 272ms
+[Follower 0/6] Receive AppendEntries request from [6:4]
+[Follower 0/6] Reset Heartbeat timeout duration: 152ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 1
+[Leader 5/6] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 0/3] Request vote from 2
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 1
+[Follower 0/6] Receive AppendEntries request from [6:4]
+[Follower 0/6] Reset Heartbeat timeout duration: 240ms
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 213ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 1
+[Leader 5/6] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 1/6] Heartbeat timeout
+[Raft 1] Trans role from Follower to Candidate
+[Candidate 1/6] Start election
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 4
+[Follower 0/6] Receive AppendEntries request from [6:4]
+[Follower 0/6] Reset Heartbeat timeout duration: 214ms
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 158ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 1
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 251ms
+[Candidate 6/2] Request vote from 5
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 1
+[Follower 0/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 0/6] Reset Heartbeat timeout duration: 170ms
+[Follower 3/6] Reset Heartbeat timeout duration: 217ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 1
+[Leader 5/6] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 226ms
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 4
+[Leader 6/4] Send heartbeat to 1
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 248ms
+[Follower 0/6] Receive AppendEntries request from [6:4]
+[Follower 0/6] Reset Heartbeat timeout duration: 223ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 1
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 4
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 5/6] Request vote from 6
+[Leader 5/6] AppendEntries request from [6, 4]
+[Leader 5/6] 6 is a stale leader
+[Leader 6/4] Send heartbeat to 5
+[Leader 6/4] Send heartbeat to 2
+[Leader 6/4] Send heartbeat to 3
+[Leader 6/4] Send heartbeat to 1
+[Leader 6/4] Send heartbeat to 0
+[Leader 6/4] Send heartbeat to 4
+[Follower 0/6] Receive AppendEntries request from [6:4]
+[Follower 0/6] Reset Heartbeat timeout duration: 225ms
+[Leader 5/6] AppendEntries request from [6, 4]
+[Leader 5/6] 6 is a stale leader
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 279ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 6/4] AppendEntries request from [5, 6]
+[Leader 6/4] Retire
+[Raft 6] Trans role from Leader to Follower
+[Follower 6/4] Heartbeat timeout duration: 297ms
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 1
+[Follower 6/4] Receive AppendEntries request from [5:6]
+[Follower 6/4] Reset Heartbeat timeout duration: 297ms
+[Follower 3/6] Receive AppendEntries request from [5:6]
+[Follower 3/6] Reset Heartbeat timeout duration: 240ms
+[Leader 5/6] Send heartbeat to 4
+[Follower 0/6] Receive AppendEntries request from [5:6]
+[Follower 0/6] Reset Heartbeat timeout duration: 238ms
+[Raft 2] Trans role from Candidate to Follower
+[Follower 2/5] Heartbeat timeout duration: 238ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Raft 4] Trans role from Candidate to Follower
+[Follower 4/5] Heartbeat timeout duration: 285ms
+[Follower 0/6] Receive AppendEntries request from [6:4]
+[Follower 0/6] Reset Heartbeat timeout duration: 290ms
+[Follower 4/5] Receive AppendEntries request from [5:2]
+[Follower 4/5] Reset Heartbeat timeout duration: 186ms
+[Follower 4/5] Receive AppendEntries request from [5:6]
+[Follower 4/5] Reset Heartbeat timeout duration: 241ms
+[Candidate 0/5] Request vote from 2
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 1
+[Follower 2/5] Receive AppendEntries request from [5:6]
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 4
+[Follower 2/5] Reset Heartbeat timeout duration: 289ms
+[Follower 0/6] Receive AppendEntries request from [5:6]
+[Follower 0/6] Reset Heartbeat timeout duration: 169ms
+[Follower 6/6] Receive AppendEntries request from [5:6]
+[Follower 6/6] Reset Heartbeat timeout duration: 201ms
+[Follower 4/6] Receive AppendEntries request from [5:6]
+[Follower 4/6] Reset Heartbeat timeout duration: 186ms
+[Follower 3/6] Receive AppendEntries request from [5:6]
+[Follower 3/6] Reset Heartbeat timeout duration: 281ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 3/6] Receive AppendEntries request from [5:2]
+[Follower 3/6] Reset Heartbeat timeout duration: 172ms
+[Follower 2/6] Receive AppendEntries request from [5:6]
+[Follower 2/6] Reset Heartbeat timeout duration: 187ms
+[Follower 3/6] Receive AppendEntries request from [5:2]
+[Follower 3/6] Reset Heartbeat timeout duration: 200ms
+[Follower 0/6] Receive AppendEntries request from [1:1]
+[Follower 0/6] Reset Heartbeat timeout duration: 292ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 3/6] Receive AppendEntries request from [1:1]
+[Follower 3/6] Reset Heartbeat timeout duration: 219ms
+[Leader 5/6] Send heartbeat to 6
+[Leader 5/6] Send heartbeat to 2
+[Leader 5/6] Send heartbeat to 0
+[Leader 5/6] Send heartbeat to 3
+[Leader 5/6] Send heartbeat to 1
+[Follower 6/6] Receive AppendEntries request from [5:6]
+[Follower 6/6] Reset Heartbeat timeout duration: 219ms
+[Follower 0/6] Receive AppendEntries request from [5:6]
+[Follower 0/6] Reset Heartbeat timeout duration: 184ms
+[Follower 3/6] Receive AppendEntries request from [5:6]
+[Follower 3/6] Reset Heartbeat timeout duration: 184ms
+[Leader 5/6] Send heartbeat to 4
+[Follower 2/6] Receive AppendEntries request from [5:6]
+[Follower 2/6] Reset Heartbeat timeout duration: 169ms
+[Follower 4/6] Receive AppendEntries request from [5:6]
+[Follower 4/6] Reset Heartbeat timeout duration: 191ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 0/6] Receive AppendEntries request from [5:2]
+[Follower 0/6] Reset Heartbeat timeout duration: 163ms
+[Leader 5/6] AppendEntries request from [6, 4]
+[Leader 5/6] 6 is a stale leader
+[Candidate 3/3] Request vote from 2
+[Candidate 1/7] Request vote from 5
+[Leader 5/6] RequestVote from 1 with term 7
+[Leader 5/6] Retire cause of stale term
+[Leader 5/6] Retire
+[Raft 5] Trans role from Leader to Follower
+[Candidate 1/7] Request vote from 5
+[Follower 5/6] Heartbeat timeout duration: 196ms
+[Follower 5/6] Receive AppendEntries request from [6:4]
+[Follower 5/6] Reset Heartbeat timeout duration: 207ms
+[Follower 3/6] Receive AppendEntries request from [1:1]
+[Follower 3/6] Reset Heartbeat timeout duration: 183ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 0/6] Receive AppendEntries request from [5:2]
+[Follower 0/6] Reset Heartbeat timeout duration: 214ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Candidate 0/3] Request vote from 6
+[Follower 4/6] Receive AppendEntries request from [6:4]
+[Follower 4/6] Reset Heartbeat timeout duration: 276ms
+[Follower 6/6] Receive AppendEntries request from [5:6]
+[Follower 6/6] Reset Heartbeat timeout duration: 292ms
+[Follower 2/6] Receive AppendEntries request from [5:2]
+[Follower 2/6] Reset Heartbeat timeout duration: 275ms
+[Follower 4/6] Receive AppendEntries request from [6:4]
+[Follower 4/6] Reset Heartbeat timeout duration: 285ms
+[Follower 4/6] Receive AppendEntries request from [6:4]
+[Follower 4/6] Reset Heartbeat timeout duration: 156ms
+[Follower 5/6] Receive AppendEntries request from [1:1]
+[Follower 3/6] Receive AppendEntries request from [1:1]
+[Follower 5/6] Reset Heartbeat timeout duration: 223ms
+[Follower 3/6] Reset Heartbeat timeout duration: 297ms
+[Follower 6/6] Receive AppendEntries request from [1:1]
+[Follower 6/6] Reset Heartbeat timeout duration: 171ms
+[Follower 3/6] Receive AppendEntries request from [1:1]
+[Follower 3/6] Reset Heartbeat timeout duration: 275ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 6/6] Receive AppendEntries request from [1:1]
+[Follower 6/6] Reset Heartbeat timeout duration: 218ms
+[Follower 6/6] Receive AppendEntries request from [5:2]
+[Follower 6/6] Reset Heartbeat timeout duration: 298ms
+[Candidate 6/2] Request vote from 4
+[Follower 0/6] Receive AppendEntries request from [5:2]
+[Follower 0/6] Reset Heartbeat timeout duration: 173ms
+[Follower 2/6] Receive AppendEntries request from [5:2]
+[Follower 2/6] Reset Heartbeat timeout duration: 264ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 3/6] Receive AppendEntries request from [6:4]
+[Follower 3/6] Reset Heartbeat timeout duration: 215ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 4/6] Heartbeat timeout
+[Raft 4] Trans role from Follower to Candidate
+[Candidate 4/6] Start election
+[Follower 5/6] Receive RequestVote from 4
+[Follower 0/6] Receive RequestVote from 4
+[Follower 5/6] Reset Heartbeat timeout duration: 583ms
+[Follower 0/6] Reset Heartbeat timeout duration: 651ms
+[Follower 2/6] Receive RequestVote from 4
+[Follower 2/6] Reset Heartbeat timeout duration: 647ms
+[Follower 2/6] Grant vote to 4
+[Follower 5/6] Grant vote to 4
+[Follower 3/6] Receive RequestVote from 4
+[Follower 3/6] Reset Heartbeat timeout duration: 615ms
+[Follower 3/6] Grant vote to 4
+[Candidate 4/7] Request vote from 2
+[Follower 6/6] Receive RequestVote from 4
+[Follower 6/6] Reset Heartbeat timeout duration: 776ms
+[Follower 6/6] Grant vote to 4
+[Candidate 4/7] Request vote from 5
+[Follower 0/6] Grant vote to 4
+[Candidate 4/7] Request vote from 1
+[Candidate 4/7] Request vote from 3
+[Candidate 4/7] Defeated
+[Candidate 4/7] Request vote from 6
+[Candidate 4/7] Request vote from 0
+[Raft 4] Trans role from Candidate to Leader
+[Leader 4/7] Send heartbeat to 6
+[Leader 4/7] Send heartbeat to 2
+[Leader 4/7] Send heartbeat to 0
+[Leader 4/7] Send heartbeat to 1
+[Leader 4/7] Send heartbeat to 3
+[Follower 6/6] Receive AppendEntries request from [4:7]
+[Follower 6/6] Reset Heartbeat timeout duration: 167ms
+[Follower 2/6] Receive AppendEntries request from [4:7]
+[Follower 2/6] Reset Heartbeat timeout duration: 250ms
+[Follower 3/6] Receive AppendEntries request from [4:7]
+[Follower 3/6] Reset Heartbeat timeout duration: 177ms
+[Follower 0/6] Receive AppendEntries request from [4:7]
+[Leader 4/7] Send heartbeat to 5
+[Follower 0/6] Reset Heartbeat timeout duration: 262ms
+[Follower 5/6] Receive AppendEntries request from [4:7]
+[Follower 5/6] Reset Heartbeat timeout duration: 188ms
+[Follower 3/7] Receive AppendEntries request from [5:6]
+[Follower 3/7] Reset Heartbeat timeout duration: 216ms
+[Raft 1] Trans role from Candidate to Follower
+[Follower 1/7] Heartbeat timeout duration: 233ms
+[Follower 0/7] Receive AppendEntries request from [1:1]
+[Follower 0/7] Reset Heartbeat timeout duration: 293ms
+[Candidate 3/5] Request vote from 4
+[Follower 5/7] Receive AppendEntries request from [1:1]
+[Follower 5/7] Reset Heartbeat timeout duration: 225ms
+[Follower 2/7] Receive AppendEntries request from [5:2]
+[Follower 2/7] Reset Heartbeat timeout duration: 269ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 4/7] AppendEntries request from [5, 2]
+[Leader 4/7] 5 is a stale leader
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Leader 4/7] Send heartbeat to 6
+[Leader 4/7] Send heartbeat to 2
+[Leader 4/7] Send heartbeat to 3
+[Leader 4/7] Send heartbeat to 0
+[Follower 0/7] Receive AppendEntries request from [4:7]
+[Follower 0/7] Reset Heartbeat timeout duration: 281ms
+[Leader 4/7] Send heartbeat to 1
+[Leader 4/7] Send heartbeat to 5
+[Follower 2/7] Receive AppendEntries request from [4:7]
+[Follower 6/7] Receive AppendEntries request from [4:7]
+[Follower 6/7] Reset Heartbeat timeout duration: 220ms
+[Follower 3/7] Receive AppendEntries request from [4:7]
+[Follower 3/7] Reset Heartbeat timeout duration: 211ms
+[Follower 2/7] Reset Heartbeat timeout duration: 177ms
+[Follower 1/7] Receive AppendEntries request from [4:7]
+[Follower 1/7] Reset Heartbeat timeout duration: 206ms
+[Follower 5/7] Receive AppendEntries request from [4:7]
+[Follower 5/7] Reset Heartbeat timeout duration: 247ms
+[Follower 0/7] Receive AppendEntries request from [6:4]
+[Follower 0/7] Reset Heartbeat timeout duration: 251ms
+[Leader 4/7] AppendEntries request from [1, 1]
+[Leader 4/7] 1 is a stale leader
+[Follower 0/7] Receive AppendEntries request from [6:4]
+[Follower 0/7] Reset Heartbeat timeout duration: 244ms
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Leader 4/7] AppendEntries request from [1, 1]
+[Leader 4/7] 1 is a stale leader
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 6/7] Receive AppendEntries request from [5:6]
+[Follower 6/7] Reset Heartbeat timeout duration: 225ms
+[Leader 4/7] Send heartbeat to 6
+[Leader 4/7] Send heartbeat to 2
+[Leader 4/7] Send heartbeat to 3
+[Leader 4/7] Send heartbeat to 0
+[Follower 6/7] Receive AppendEntries request from [4:7]
+[Follower 6/7] Reset Heartbeat timeout duration: 199ms
+[Follower 2/7] Receive AppendEntries request from [4:7]
+[Follower 2/7] Reset Heartbeat timeout duration: 160ms
+[Follower 3/7] Receive AppendEntries request from [4:7]
+[Follower 3/7] Reset Heartbeat timeout duration: 261ms
+[Follower 0/7] Receive AppendEntries request from [4:7]
+[Follower 0/7] Reset Heartbeat timeout duration: 171ms
+[Leader 4/7] Send heartbeat to 5
+[Leader 4/7] Send heartbeat to 1
+[Follower 5/7] Receive AppendEntries request from [4:7]
+[Follower 5/7] Reset Heartbeat timeout duration: 161ms
+[Follower 1/7] Receive AppendEntries request from [4:7]
+[Follower 1/7] Reset Heartbeat timeout duration: 287ms
+[Follower 0/7] Receive AppendEntries request from [1:1]
+[Follower 0/7] Reset Heartbeat timeout duration: 269ms
+[Follower 1/7] Receive AppendEntries request from [6:4]
+[Follower 1/7] Reset Heartbeat timeout duration: 175ms
+[Follower 5/7] Receive AppendEntries request from [6:4]
+[Follower 5/7] Reset Heartbeat timeout duration: 240ms
+[Candidate 4/5] Request vote from 5
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 3/7] Receive AppendEntries request from [1:1]
+[Follower 3/7] Reset Heartbeat timeout duration: 193ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+[Follower 2/7] Receive AppendEntries request from [5:2]
+[Follower 2/7] Reset Heartbeat timeout duration: 206ms
+[Leader 4/7] Send heartbeat to 6
+[Leader 4/7] Send heartbeat to 0
+[Leader 4/7] Send heartbeat to 3
+[Leader 4/7] Send heartbeat to 1
+[Leader 4/7] Send heartbeat to 2
+[Leader 4/7] Send heartbeat to 5
+[Follower 0/7] Receive AppendEntries request from [4:7]
+[Follower 0/7] Reset Heartbeat timeout duration: 190ms
+[Follower 1/7] Receive AppendEntries request from [4:7]
+[Follower 2/7] Receive AppendEntries request from [4:7]
+[Follower 1/7] Reset Heartbeat timeout duration: 188ms
+[Follower 2/7] Reset Heartbeat timeout duration: 158ms
+[Follower 5/7] Receive AppendEntries request from [4:7]
+[Follower 5/7] Reset Heartbeat timeout duration: 293ms
+[Follower 3/7] Receive AppendEntries request from [4:7]
+[Follower 3/7] Reset Heartbeat timeout duration: 230ms
+[Follower 6/7] Receive AppendEntries request from [4:7]
+[Follower 6/7] Reset Heartbeat timeout duration: 293ms
+[Follower 6/7] Receive AppendEntries request from [1:1]
+[Follower 6/7] Reset Heartbeat timeout duration: 218ms
+[Follower 1/7] Receive AppendEntries request from [5:2]
+[Follower 1/7] Reset Heartbeat timeout duration: 246ms
+[Follower 0/7] Receive AppendEntries request from [5:2]
+[Follower 0/7] Reset Heartbeat timeout duration: 271ms
+[Follower 6/7] Receive AppendEntries request from [1:1]
+[Follower 6/7] Reset Heartbeat timeout duration: 154ms
+[Leader 4/7] AppendEntries request from [1, 1]
+[Leader 4/7] 1 is a stale leader
+[Leader 2/1] Send heartbeat to 1
+[Leader 2/1] Send heartbeat to 0
+[Follower 1/7] Receive AppendEntries request from [5:2]
+[Follower 1/7] Reset Heartbeat timeout duration: 296ms
+[Follower 6/7] Receive AppendEntries request from [5:2]
+[Follower 6/7] Reset Heartbeat timeout duration: 277ms
+[Follower 1/7] Receive AppendEntries request from [5:6]
+[Follower 1/7] Reset Heartbeat timeout duration: 216ms
+[Leader 2/4] Send heartbeat to 1
+[Leader 2/4] Send heartbeat to 0
+  ... Passed --   5.9  7  903  136377    0
+PASS
+ok  	6.5840/raft	14.672s

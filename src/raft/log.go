@@ -7,8 +7,8 @@ package raft
 import "sync"
 
 type LogEntry struct {
-	term int
-	content []byte
+	Term int
+	Content []byte
 }
 type Logs struct {
 	entries []*LogEntry
@@ -18,13 +18,17 @@ type Logs struct {
 func (logs *Logs) lastLogIndex() int {
 	logs.RLock()
 	defer logs.RUnlock()
-	return len(logs.entries)-1
+	return len(logs.entries)
 }
 
 func (logs *Logs) lastLogTerm() int {
 	logs.RLock()
 	defer logs.RUnlock()
-	return logs.entries[len(logs.entries)-1].term
+	if len(logs.entries) == 0 {
+		return 0
+	} else {
+		return logs.entries[len(logs.entries)-1].Term
+	}
 }
 
 func (logs *Logs) appendEntries(ets []*LogEntry) {

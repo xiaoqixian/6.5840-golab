@@ -19,6 +19,7 @@ package raft
 
 import (
 	//	"bytes"
+	"log"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -65,11 +66,15 @@ type Role interface {
 	// So if you need to run a long time task, 
 	// use goroutine.
 	init()
+	finish()
+	name() string
+
+	requestVote(*RequestVoteArgs, *RequestVoteReply)
+	appendEntries(*AppendEntriesArgs, *AppendEntriesReply)
 }
 
 // A Go object implementing a single Raft peer.
 type Raft struct {
-	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
 	persister *Persister          // Object to hold this peer's persisted state
 	me        int                 // this peer's index into peers[]
@@ -84,17 +89,37 @@ type Raft struct {
 }
 
 func (rf *Raft) transRole(f func(Role) Role) {
+	rf.role.finish()
+
 	rf.roleLock.Lock()
 	defer rf.roleLock.Unlock()
 	
+	_old_name := rf.role.name()
 	rf.role = f(rf.role)
+	log.Printf("[Raft %d] Trans role from %s to %s", rf.me, _old_name, rf.role.name())
 	rf.role.init()
 }
 
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-	return -1, false // should not be fired.
+	switch role := rf.role.(type) {
+	case *Follower:
+		if role.leaderInfo == nil {
+			return -1, false
+		} else {
+			return role.leaderInfo.term, false
+		}
+		
+	case *Candidate:
+		return int(role.term.Load()), false
+
+	case *Leader:
+		return role.term, true
+
+	default:
+		return -1, false
+	}
 }
 
 // this function should be seen as atomic.
@@ -153,8 +178,12 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 
 }
 
-// example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
+	rf.role.requestVote(args, reply)
+}
+
+func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	rf.role.appendEntries(args, reply)
 }
 
 // example code to send a RequestVote RPC to a server.
@@ -256,20 +285,38 @@ func (rf *Raft) ticker() {
 // for any long-running work.
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
-	rf := &Raft{
+	
+	setupLogger()
+
+	rf := &Raft {
 		peers: peers,
 		persister: persister,
 		me: me,
 		applyCh: applyCh,
+		logs: &Logs {},
 	}
 
 	// Your initialization code here (3A, 3B, 3C).
+
+	flw := &Follower {
+		rf: rf,
+		leaderInfo: &LeaderInfo {
+			id: -1,
+			term: 0,
+		},
+	}
+	rf.role = flw
+	flw.init()
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
 	// start ticker goroutine to start elections
-	go rf.ticker()
+	// go rf.ticker()
 
 	return rf
+}
+
+func setupLogger() {
+	log.SetFlags(0)
 }

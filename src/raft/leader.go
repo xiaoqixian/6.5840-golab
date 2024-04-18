@@ -4,7 +4,17 @@
 
 package raft
 
-import "6.5840/labrpc"
+import (
+	"fmt"
+	"log"
+
+	"6.5840/labrpc"
+)
+
+// information for a leader transform to a follower.
+type RetireInfo struct {
+	term int
+}
 
 type Leader struct {
 	term int
@@ -12,12 +22,14 @@ type Leader struct {
 	rf *Raft
 
 	heartBeatTimer *RepeatTimer
+
+	retireInfo *RetireInfo
 }
 
 func leaderFromCandidate(r Role) Role {
 	cd := r.(*Candidate)
 	return &Leader {
-		term: cd.term,
+		term: int(cd.term.Load()),
 		rf: cd.rf,
 	}
 }
@@ -26,6 +38,51 @@ func (*Leader) role() RoleEnum { return LEADER }
 
 func (ld *Leader) init() {
 	ld.setHeartbeatTimer()
+}
+func (ld *Leader) finish() {
+	if ld.heartBeatTimer != nil {
+		ld.heartBeatTimer.kill()
+	}
+}
+
+func (*Leader) name() string {
+	return "Leader"
+}
+
+// TODO: should a stale leader vote
+func (ld *Leader) requestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
+	ld.log("RequestVote from %d with term %d", args.CandidateID, args.Term)
+	rf := ld.rf
+	reply.VoterID = rf.me
+
+	if args.Term > ld.term {
+		// leader expired
+		reply.VoteStatus = VOTE_GRANTED
+		ld.log("Retire cause of stale term")
+		go ld.retire()
+	} else {
+		reply.VoteStatus = VOTE_DENIAL
+		reply.Term = ld.term
+	}
+}
+
+// An AppendEntries RPC call with a greater term will triger the 
+// transformation from Leader to Follwer.
+func (ld *Leader) appendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	ld.log("AppendEntries request from [%d, %d]", args.Id, args.Term)
+	if args.Term > ld.term {
+		go ld.retire()
+	} else {
+		ld.log("%d is a stale leader", args.Id)
+	}
+}
+
+func (ld *Leader) retire() {
+	ld.log("Retire")
+	ld.retireInfo = &RetireInfo {
+		term: ld.term,
+	}
+	ld.rf.transRole(followerFromLeader)
 }
 
 func (ld *Leader) sendHeartBeats() {
@@ -36,11 +93,17 @@ func (ld *Leader) sendHeartBeats() {
 	}
 	reply := &AppendEntriesReply {}
 
-	for i, peer := range ld.rf.peers {
-		if i == ld.rf.me { continue }
-		go func(peer *labrpc.ClientEnd) {
-			peer.Call("Raft.AppendEntries", args, reply)
-		}(peer)
+	for i, peer := range rf.peers {
+		if i == rf.me { continue }
+		go func(peer *labrpc.ClientEnd, id int) {
+			ld.log("Send heartbeat to %d", id)
+			ok, tries := false, RPC_CALL_TRY_TIMES
+			for !ok && tries > 0 {
+				tries--
+				ok = peer.Call("Raft.AppendEntries", args, reply)
+			}
+			// TODO: process AppendEntriesReply
+		}(peer, i)
 	}
 }
 
@@ -50,4 +113,8 @@ func (ld *Leader) setHeartbeatTimer() {
 	} else {
 		ld.heartBeatTimer.reset(HEARTBEAT_SEND)
 	}
+}
+
+func (ld *Leader) log(format string, args ...interface{}) {
+	log.Printf("[Leader %d/%d] %s\n", ld.rf.me, ld.term, fmt.Sprintf(format, args...))
 }

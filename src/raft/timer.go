@@ -35,8 +35,8 @@ func newRepeatTimer(d time.Duration, f func()) *RepeatTimer {
 		f: f,
 		runner: func(rt *RepeatTimer) {
 			for !rt.killed.Load() {
-				<- rt.ticker.C
 				rt.f()
+				<- rt.ticker.C
 			}
 			rt.stopped.Store(true)
 		},
