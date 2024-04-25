@@ -1,18 +1,37 @@
 ### Lab3 Raft
 
+#### Architectures
+
+##### Follower
+
+​	
+
 #### A. Leader Election
 
 ​	节点投票机制: 
 
-- 若候选者的任期小于自己, 则拒绝投票. 并回送自己当前leader的term和 leader id.
+- 若候选者的任期小于等于自己, 则拒绝投票. 并回送自己当前leader的term和 leader id.
+
+  为什么要求候选者的任期必须大于自己? 
+
+  首先小于自己为什么拒绝的情况不需要讨论, 在等于自己的情况下, 则说明该候选者在开始选举之前的 term 刚好小于自己的 term. 这并不能说明该候选者没有资格参加选举, 因为可能存在这种情况: 
+
+  - 假设候选者的 term 为 T1, 本节点的 term 也是 T1. 而本节点的 T1 term 来自于本节点最近发送 AppendEntries RPC 中 term 最大的 leader. 
+  - 该 leader 可能在刚开始发送心跳信息到少数节点之后就宕机了, 使得只有少数几个节点的 term 更新到了 T1. 大多数节点的 term 还是 T1-1 或者更小, 而且这部分节点由于没有收到心跳信息所以更先心跳信息 timeout, 并发起选举. 由于 term 为 T1 的节点只有少数节点, 所以即便它们拒绝给出选票, 仍然可能赢得选举, 新选举的 leader 的 term 也是 T1, 少部分term为 T1 的节点也会承认该 leader.
+
+- 若候选者的任期大于自己, 则给予选票, 并将自己的任期更新到该候选者的任期, 并重置自己的 timer.
+
+  之所以候选者还没有获选时, 跟随者就直接更新自己的 term. 是因为我们只需要保证 term 是递增的, 而并不一定是要连续的.
+
+  若 follower 在投票时不更新自己的 term, 则可能出现这样的情况: candidate  已经获取了大多数节点的选票, 则更新自己的状态为 leader, term 为 t, 其它节点此时的 term 依旧为 t-1 或更小.  若 leader 还未来得及给其它节点发送心跳信息宣示自己的存在就宕机了, 则其它节点开始新一轮选举, 选举的 leader 的 term 也是 t, 而原 leader 宕机重启之后依然认为自己是 leader, 则将导致集群中出现两个 term 相同的 leader, 违背了一致性原则. 
+
+  因此, follower 在给出选票的同时必须更新自己的 term, 换句话说, 当 follower 可以认为自己给出选票的对象就是自己的 leader.
 
 候选者期望得到的选票回复为以下几种:
 
-1. 给票
-2. 拒绝给票, 因为已经投票给其它候选者, 则候选者需要检查其它候选者的term, 如果大于自己的应该立刻中止选举.
-3. 拒绝给票, 因为有一个term不小于候选者term的leader存在, 则候选者应该立刻中止选票. 
-
-​	
+1. `VOTE_GRANTED`: 给票
+2. `VOTE_DENIAL`: 拒绝给出选票, 因为候选者的 last commit index 小于自身;
+3. `VOTE_OTHER`: 已经投票给其它节点, 候选者需要检查对应回复信息中的 term 是否大于自身, 如果是, 则应该退出选举. 
 
 ##### 	群雄割据
 
@@ -26,6 +45,20 @@
   2. 赢得选举
   3. 选举遭到打断, 例如收到不小于自己候选任期的服务器的 AppendEntries RPC, 则说明集群内已经选举产生一个 leader, 只是自己还没有收到消息. 则立刻停止选举, 回退为一个 跟随者.
 
+##### 特殊情况:
+
+1. 倘若一个已达到稳定的集群中出现一个节点网络中断, 假设节点id为1, 其它节点继续稳定运行, 假设集群此时大部分节点的 term 为 1, 中断节点的 term 也为 1, last commit index 均为1. 
+
+   随后该节点网络恢复, 由于网络中断过久, 此时节点的心跳信息已经 timeout, 于是节点发起选举, 将自己的 term 加1 得到 2, last commit index 依旧为1.
+
+   而此时集群其它节点还在平稳运行, 并没有发生换届, 因此 term 依旧为1, 但是 last commit index 已经更新到 5.
+
+   在这种情况下,  节点1 显然不能赢得选举, 因为其并没有足够新的 last commit index, 其它节点不会给出选票, 因此该节点会一直陷入到 发起选举-> 无法获得足够的选票 -> 随机等待一段时间 -> 发起选举的循环之中, 并且由于每次选举的迭代中其会自增自己的 term, 导致即便集群出现新的 leader, 该 leader 的 term 小于该节点的可能性依然很大. 
+
+   为了防止网络中断节点陷入这种循环之中, 添加以下的机制: 当 candidate 收到更小 term 的 AppendEntries RPC 时, 其拒绝该 RPC, 并回复自己的 term. leader 在收到以后即认为自己已经“过时”(尽管实际上并没有), 转换为 follower. 此时集群进入“群龙无首” 的状态, 随后出现携带 last commit index 的节点心跳 timeout 之后发起选举并赢得选举, 进入下一阶段. 
+
+   
+
 ##### 并发与锁
 
 ​	每个节点应该表现为一个被动触发的有限状态机, 主线程只运行一个死循环保证程序不会退出. 其它操作由定时器和 RPC 调用触发完成. 而节点的所有操作是基于当前的身份来完成的, 这引出一个问题: 如何保证节点被并发触发时的一致性. 
@@ -34,3 +67,60 @@
 2. follower 的投票只能投票给一个节点, 因此需要一个锁来保护. 
 3. 节点的所有 entries 需要通过锁来保护.
 
+##### Candidate status atomic value
+
+​	候选者总共有五种状态:
+
+```go
+type CandidateStatus uint8
+const (
+	POLLING CandidateStatus = iota
+	ELECTED
+	DEFEATED
+	POLL_TIMEOUT
+	CANDIDATE_KILLED
+)
+```
+
+1. 初始状态下为 `POLLING`, 表示正在进行选举;
+2. 选举的状态可以随时被打破:
+   1. 选举 timeout, 转换为 `POLL_TIMEOUT`
+   2. 获得足够的选票, 转换为 `ELECTED`
+   3. 收到更大 term 的 `RequestVote` 或者至少一样大 term 的 `AppendEntries`.
+3. 上面的状态转换均需要获取锁, 然后判断当前状态是否为 `POLLING` 再进行.
+
+`ELETED`, `DEFEATED`, `POLL_TIMEOUT` 等状态的进入需要以当前状态为 `POLLING` 为前提. 但在一些临界情况下依然无法保证原子性, 我们需要设置一些额外的状态来辅助完成. 例如, 当对选举信息进行修改时(term自增、选票清零等), 我们不希望其它 RPC 调用在此期间访问这些信息. 在这种情况下, 我们可以将 CandidateStatus 设置为 `POLL_UPDATING`, 当 RPC 调用需要访问这些信息时, 需要进行自旋等待, 直到修改完成.
+
+#### 数据项分发
+
+​	API 接口要求返回三个值: 第一个表示命令如果被正确提交将会出现的索引, 第二个表示命令所在的term, 第三个表示当前节点是否认为自己是 leader.
+
+​	Leader 首先需要维护一个数组用于存放所有的 Entry, 当一个 Leader 新上任时, 该数组应该只包含所有已提交的 Entry. 当客户端提交命令时, 直接将命令封装为 Entry 后放到数组尾部. 
+
+​	同时 Leader 需要维护另一个数组, 表示所有的节点(包括自己)已提交的 Entry 的索引的下一位, 即 leader 的 commit 索引所指向的 entry 就是接下来需要提交的 entry, 不应存在节点的索引比 leader 的更大. leader 新上任时, 默认所有的节点的 entry 与自己的相同, 而后通过发布一个 `NoopEntry` 到各节点摸清各节点已提交的 entry 索引信息, 从而保持同步.
+
+​	Leader 上任时, 会为每个 peer (不包括自己) 开一个协程, 用于分发 entry, 这些协程会定期检查 entry 数组是否有可分发的 entry, 这个过程需要由 leader 封装, leader 不会透露超过自己的 commit index 之后的 entry, 防止出现提交不一致的情况. 随后该协程通过 RPC 调用分发到各 peer 节点, 分发成功后通过一个 channel 告知 leader 的某个协程. leader 在确定自己的 commit 索引处的 entry 已经大部分提交了以后, 自动加一. 
+
+##### 候选者上任过程
+
+##### 主从Log同步过程
+
+​	当 leader 上任时, 默认所有 follower 的 log 索引与自己相同, 然后通过发送 AppendEntries RPC 达到同步. 
+
+​	follower 收到 AppendEntries RPC 时, 无法确认自己是否已经与 leader 达到同步. 所以 leader 需要在 RPC 中包含自己的前一个 entry 的 term 和 index. 
+
+​	当 follower 发现自己的 last commit index 无法与 RPC 中的信息匹配时(需要任期和索引均匹配), 则置 `Success: false`, 并置 `term` 为自己的 `term`. 
+
+​	leader 在收到回复之后, 首先检查是否成功; 若成功, 则继续分发接下来的 entry. 若失败, 首先检查term是否大于自己的term, 若是, 则说明 leader 已经不被认可, 则触发“退休”机制, 退化为一个 follower, 重新开始流程.
+
+##### Leader commit 过程
+
+​	Leader 需要一个分发次数确认机制, leader 每收到一个客户端的 entry, 需要将该 entry 分发到所有 follower. 随后其会收到这些 follower 的回复, 每收到一个肯定回复, 其需要在内部记录此状态, 在收到大部分 follower 的肯定回复之后, 该 entry 可以认为已被 commit, 从而更新 leader 的 last commit index.
+
+​	考虑到重复 RPC 的影响, 我认为不能用一个简单的计数器表示已确认复制的 follower 数量, 因此选择使用 bitmap 记录单个 entry 的回复情况. 每个 bit 对应该 entry 是否已经复制到对应的 peer 节点.
+
+​	所有 entry 构成一个索引连续的数组, 要求保证索引必须是连续递增的. 每当有 follower 回复时, 则会检查是否可以更新对应的. 
+
+##### 代前朝 commit
+
+​	存在一种情况是前任 leader 在宕机前已经将 last log 分发到大多数节点上, 但是还没有来得及提交. 既然该 log 已经被分发到大多数节点, 而新 leader 获选需要获得大多数节点的选票, 因此**至少存在一个节点既存有该 log(但是还没来得及提交), 又为新 leader 投过票.**

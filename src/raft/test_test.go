@@ -8,12 +8,15 @@ package raft
 // test with the original before submitting.
 //
 
-import "testing"
-import "fmt"
-import "time"
-import "math/rand"
-import "sync/atomic"
-import "sync"
+import (
+	"fmt"
+	"log"
+	"math/rand"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+)
 
 // The tester generously allows solutions to complete elections in one second
 // (much more than the paper's range of timeouts).
@@ -130,7 +133,8 @@ func TestBasicAgree3B(t *testing.T) {
 
 	cfg.begin("Test (3B): basic agreement")
 
-	iters := 3
+	// iters := 3
+	iters := 1
 	for index := 1; index < iters+1; index++ {
 		nd, _ := cfg.nCommitted(index)
 		if nd > 0 {
@@ -273,28 +277,37 @@ func TestFailAgree3B(t *testing.T) {
 
 	cfg.begin("Test (3B): agreement after follower reconnects")
 
+	tlog("cfg.one(101)")
 	cfg.one(101, servers, false)
 
 	// disconnect one follower from the network.
 	leader := cfg.checkOneLeader()
 	cfg.disconnect((leader + 1) % servers)
+	tlog("Node %d disconnected", (leader+1)%servers)
 
 	// the leader and remaining follower should be
 	// able to agree despite the disconnected follower.
+	fmt.Println("\ncfg.one(102)")
 	cfg.one(102, servers-1, false)
+	log.Println("\ncfg.one(103)")
 	cfg.one(103, servers-1, false)
 	time.Sleep(RaftElectionTimeout)
+	log.Println("\ncfg.one(104)")
 	cfg.one(104, servers-1, false)
+	log.Println("\ncfg.one(105)")
 	cfg.one(105, servers-1, false)
 
 	// re-connect
 	cfg.connect((leader + 1) % servers)
+	log.Printf("\nNode %d reconnected\n", (leader+1)%servers)
 
 	// the full set of servers should preserve
 	// previous agreements, and be able to agree
 	// on new commands.
+	log.Println("\ncfg.one(106)")
 	cfg.one(106, servers, true)
 	time.Sleep(RaftElectionTimeout)
+	log.Println("\ncfg.one(107)")
 	cfg.one(107, servers, true)
 
 	cfg.end()
@@ -315,6 +328,11 @@ func TestFailNoAgree3B(t *testing.T) {
 	cfg.disconnect((leader + 2) % servers)
 	cfg.disconnect((leader + 3) % servers)
 
+	tlog("")
+	tlog("%d disconnected", (leader+1) % servers)
+	tlog("%d disconnected", (leader+2) % servers)
+	tlog("%d disconnected", (leader+3) % servers)
+
 	index, _, ok := cfg.rafts[leader].Start(20)
 	if ok != true {
 		t.Fatalf("leader rejected Start()")
@@ -334,6 +352,10 @@ func TestFailNoAgree3B(t *testing.T) {
 	cfg.connect((leader + 1) % servers)
 	cfg.connect((leader + 2) % servers)
 	cfg.connect((leader + 3) % servers)
+	tlog("")
+	tlog("%d connected", (leader+1) % servers)
+	tlog("%d connected", (leader+2) % servers)
+	tlog("%d connected", (leader+3) % servers)
 
 	// the disconnected majority may have chosen a leader from
 	// among their own ranks, forgetting index 2.

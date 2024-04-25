@@ -19,6 +19,7 @@ package raft
 
 import (
 	//	"bytes"
+	"encoding/gob"
 	"log"
 	"math/rand"
 	"sync"
@@ -34,6 +35,7 @@ import (
 // tester) on the same server, via the applyCh passed to Make(). set
 // CommandValid to true to indicate that the ApplyMsg contains a newly
 // committed log entry.
+var registerd = false
 //
 // in part 3D you'll want to send other kinds of messages (e.g.,
 // snapshots) on the applyCh, but set CommandValid to false for these
@@ -67,10 +69,13 @@ type Role interface {
 	// use goroutine.
 	init()
 	finish()
+	kill()
 	name() string
 
 	requestVote(*RequestVoteArgs, *RequestVoteReply)
 	appendEntries(*AppendEntriesArgs, *AppendEntriesReply)
+
+	log(string, ...interface{})
 }
 
 // A Go object implementing a single Raft peer.
@@ -103,6 +108,9 @@ func (rf *Raft) transRole(f func(Role) Role) {
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
+	rf.roleLock.RLock()
+	defer rf.roleLock.RUnlock()
+
 	switch role := rf.role.(type) {
 	case *Follower:
 		if role.leaderInfo == nil {
@@ -179,11 +187,19 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 }
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	rf.role.requestVote(args, reply)
+	if !rf.dead.Load() {
+		rf.roleLock.RLock()
+		defer rf.roleLock.RUnlock()
+		rf.role.requestVote(args, reply)
+	}
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	rf.role.appendEntries(args, reply)
+	if !rf.dead.Load() {
+		rf.roleLock.RLock()
+		defer rf.roleLock.RUnlock()
+		rf.role.appendEntries(args, reply)
+	}
 }
 
 // example code to send a RequestVote RPC to a server.
@@ -213,10 +229,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 // capitalized all field names in structs passed over RPC, and
 // that the caller passes the address of the reply struct with &, not
 // the struct itself.
-func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
-	return ok
-}
 
 
 // the service using Raft (e.g. a k/v server) wants to start
@@ -232,14 +244,17 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // term. the third return value is true if this server believes it is
 // the leader.
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := -1
-	term := -1
-	isLeader := true
-
 	// Your code here (3B).
+	rf.roleLock.Lock()
+	defer rf.roleLock.Unlock()
 
-
-	return index, term, isLeader
+	switch role := rf.role.(type) {
+	case *Leader:
+		idx, term := role.addEntry(command)
+		rf.log("Add command at index %d with term %d", idx, term)
+		return idx, term, true
+	}
+	return -1, -1, false
 }
 
 // the tester doesn't halt goroutines created by Raft after each test,
@@ -253,6 +268,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // should call killed() to check whether it should stop.
 func (rf *Raft) Kill() {
 	rf.dead.Store(true)
+	rf.role.kill()
 	// Your code here, if desired.
 }
 
@@ -285,6 +301,10 @@ func (rf *Raft) ticker() {
 // for any long-running work.
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
+	if !registerd {
+		gob.Register(NoopEntry{})
+		registerd = true
+	}
 	
 	setupLogger()
 
@@ -292,9 +312,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		peers: peers,
 		persister: persister,
 		me: me,
-		applyCh: applyCh,
-		logs: &Logs {},
 	}
+	rf.logs = newLogs(rf, applyCh)
 
 	// Your initialization code here (3A, 3B, 3C).
 
@@ -315,6 +334,10 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// go rf.ticker()
 
 	return rf
+}
+
+func (rf *Raft) log(format string, args ...interface{}) {
+	rf.role.log(format, args...)
 }
 
 func setupLogger() {

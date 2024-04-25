@@ -160,13 +160,13 @@ func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 // contents
 func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 	for m := range applyCh {
-		if m.CommandValid == false {
+		if !m.CommandValid {
 			// ignore other types of ApplyMsg
 		} else {
 			cfg.mu.Lock()
 			err_msg, prevok := cfg.checkLogs(i, m)
 			cfg.mu.Unlock()
-			if m.CommandIndex > 1 && prevok == false {
+			if m.CommandIndex > 1 && !prevok {
 				err_msg = fmt.Sprintf("server %v apply out of order %v", i, m.CommandIndex)
 			}
 			if err_msg != "" {
@@ -555,7 +555,7 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 	t0 := time.Now()
 	starts := 0
-	for time.Since(t0).Seconds() < 10 && cfg.checkFinished() == false {
+	for time.Since(t0).Seconds() < 10 && !cfg.checkFinished() {
 		// try all the servers, maybe one is the leader.
 		index := -1
 		for si := 0; si < cfg.n; si++ {
@@ -575,12 +575,15 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 			}
 		}
 
+		tlog("Command index = %d", index)
+
 		if index != -1 {
 			// somebody claimed to be the leader and to have
 			// submitted our command; wait a while for agreement.
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := cfg.nCommitted(index)
+				tlog("Command %d replicated count = %d", index, nd)
 				if nd > 0 && nd >= expectedServers {
 					// committed
 					if cmd1 == cmd {
@@ -590,14 +593,14 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 				}
 				time.Sleep(20 * time.Millisecond)
 			}
-			if retry == false {
+			if !retry {
 				cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
 			}
 		} else {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
-	if cfg.checkFinished() == false {
+	if !cfg.checkFinished() {
 		cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
 	}
 	return -1
@@ -645,4 +648,8 @@ func (cfg *config) LogSize() int {
 		}
 	}
 	return logsize
+}
+
+func tlog(format string, args ...interface{}) {
+	log.Printf("[Test] %s\n", fmt.Sprintf(format, args...))
 }

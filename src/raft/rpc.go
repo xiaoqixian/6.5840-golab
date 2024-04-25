@@ -7,12 +7,19 @@ package raft
 type AppendEntriesArgs struct {
 	Id int
 	Term int
-	Entries []*LogEntry
+
+	PrevLogIndex int
+	PrevLogTerm int
+
+	LeaderCommit int
+
+	Entries *LogEntry
 }
 
 type AppendEntriesReply struct {
-	Id int
-	Accepted bool
+	Success bool
+	Term int // for leader to update itself.
+	Received bool // indicate that the follower confirm this RPC.
 }
 
 // example RequestVote RPC arguments structure.
@@ -24,6 +31,8 @@ type RequestVoteArgs struct {
 	LastLogIndex int
 	LastLogTerm int
 }
+
+type NoopEntry struct {}
 
 // example RequestVote RPC reply structure.
 // field names must start with capital letters!
