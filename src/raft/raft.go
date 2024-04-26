@@ -70,12 +70,14 @@ type Role interface {
 	init()
 	finish()
 	kill()
+	// this method should be atomic
 	name() string
 
-	requestVote(*RequestVoteArgs, *RequestVoteReply)
-	appendEntries(*AppendEntriesArgs, *AppendEntriesReply)
+	requestVote(*RequestVoteReq)
+	appendEntries(*AppendEntriesReq)
 
 	log(string, ...interface{})
+	fatal(string, ...interface{})
 }
 
 // A Go object implementing a single Raft peer.
@@ -85,24 +87,45 @@ type Raft struct {
 	me        int                 // this peer's index into peers[]
 	dead      atomic.Bool
 
-	applyCh chan ApplyMsg
-
 	role Role
 	roleLock sync.RWMutex
 
 	logs *Logs
+
+	rpcReqChan chan RpcReq
 }
 
 func (rf *Raft) transRole(f func(Role) Role) {
-	rf.role.finish()
-
 	rf.roleLock.Lock()
 	defer rf.roleLock.Unlock()
-	
+
+	rf.role.finish()
+	// clear req channel after transition.
+	rf.rpcReqChan = make(chan RpcReq)
+
 	_old_name := rf.role.name()
 	rf.role = f(rf.role)
 	log.Printf("[Raft %d] Trans role from %s to %s", rf.me, _old_name, rf.role.name())
 	rf.role.init()
+}
+
+func (rf *Raft) rpcProcessor() {
+	for !rf.dead.Load() {
+		rf.roleLock.RLock()
+		req := <- rf.rpcReqChan
+		rf.roleLock.RUnlock()
+
+		switch req := req.(type) {
+		case *AppendEntriesReq:
+			rf.role.appendEntries(req)
+
+		case *RequestVoteReq:
+			rf.role.requestVote(req)
+
+		default:
+			rf.role.fatal("Unknown req type")
+		}
+	}
 }
 
 // return currentTerm and whether this server
@@ -188,17 +211,34 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if !rf.dead.Load() {
+		rf.log("RequestVote from [%d/%d], lastCommitedIndex = %d", args.CandidateID, args.Term, args.LastLogIndex)
+		finishCh := make(chan bool, 1)
+
 		rf.roleLock.RLock()
-		defer rf.roleLock.RUnlock()
-		rf.role.requestVote(args, reply)
+		rf.rpcReqChan <- &RequestVoteReq {
+			args: args,
+			reply: reply,
+			finishCh: finishCh,
+		}
+		rf.roleLock.RUnlock()
+
+		<- finishCh
 	}
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	if !rf.dead.Load() {
+		finishCh := make(chan bool, 1)
+
 		rf.roleLock.RLock()
-		defer rf.roleLock.RUnlock()
-		rf.role.appendEntries(args, reply)
+		rf.rpcReqChan <- &AppendEntriesReq {
+			args: args,
+			reply: reply,
+			finishCh: finishCh,
+		}
+		rf.roleLock.RUnlock()
+
+		<- finishCh
 	}
 }
 
@@ -312,6 +352,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		peers: peers,
 		persister: persister,
 		me: me,
+		rpcReqChan: make(chan RpcReq),
 	}
 	rf.logs = newLogs(rf, applyCh)
 
@@ -319,10 +360,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	flw := &Follower {
 		rf: rf,
-		leaderInfo: &LeaderInfo {
-			id: -1,
-			term: 0,
-		},
+		term: 0,
 	}
 	rf.role = flw
 	flw.init()
@@ -332,6 +370,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// start ticker goroutine to start elections
 	// go rf.ticker()
+	go rf.rpcProcessor()
 
 	return rf
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,12 +25,19 @@ type VoteInfo struct {
 type Follower struct {
 	heartBeatTimer *time.Timer
 	leaderInfo *LeaderInfo
-	lastLogIndex int
+
+	term int
 
 	rf *Raft
 
+	killed atomic.Bool
+
 	voteTo *VoteInfo
 	voteLock sync.Mutex
+
+	reqChan chan RpcReq
+
+	sync.RWMutex
 }
 func (*Follower) role() RoleEnum { return FOLLOWER }
 
@@ -37,10 +45,13 @@ func (*Follower) role() RoleEnum { return FOLLOWER }
 func (flw *Follower) init() {
 	flw.setHeartBeatTimer()
 }
-func (*Follower) finish() {}
+func (flw *Follower) finish() {
+	flw.Lock()
+}
 
 func (flw *Follower) kill() {
 	flw.log("Killed")
+	flw.killed.Store(true)
 }
 
 func (*Follower) name() string {
@@ -56,6 +67,7 @@ func followerFromCandidate(r Role) Role {
 			id: -1,
 			term: int(cd.term.Load()),
 		},
+		reqChan: make(chan RpcReq),
 	}
 }
 
@@ -63,10 +75,8 @@ func followerFromLeader(r Role) Role {
 	ld := r.(*Leader)
 	return &Follower {
 		rf: ld.rf,
-		leaderInfo: &LeaderInfo {
-			id: -1,
-			term: ld.retireInfo.term,
-		},
+		term: ld.term,
+		reqChan: make(chan RpcReq),
 	}
 }
 
@@ -89,35 +99,37 @@ func (flw *Follower) resetHeartBeatTimer(rg ...int) {
 	}
 }
 
-// RequestVote can cause the heartBeatTimer reset.
-func (flw *Follower) requestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	flw.log("Receive RequestVote from %d", args.CandidateID)
+func (flw *Follower) requestVote(req *RequestVoteReq) {
+	if !flw.TryRLock() { 
+		req.finishCh <- true
+		return 
+	}
 
-	flw.voteLock.Lock()
-	defer flw.voteLock.Unlock()
+	defer func() {
+		req.finishCh <- true
+		flw.RUnlock()
+	}()
 
-	rf := flw.rf
-	voteTo := flw.voteTo
-
+	args, reply := req.args, req.reply
+	rf, voteTo := flw.rf, flw.voteTo
 	reply.VoterID = rf.me
+	logs := rf.logs
 
 	if voteTo == nil || voteTo.term < args.Term {
-		if args.LastLogIndex >= int(rf.logs.lastCommitedIndex.Load()) &&
-			args.Term > flw.leaderInfo.term {
+		if args.LastLogIndex >= int(logs.lastCommitedIndex.Load()) &&
+		args.Term > flw.term {
 			voteTo = &VoteInfo {
 				term: args.Term,
-				id: args.CandidateID,
 			}
 			reply.VoteStatus = VOTE_GRANTED
 
 			flw.resetHeartBeatTimer(LEADER_INIT_HEARTBEAT_TIMEOUT...)
-			flw.updateLeader(args.CandidateID, args.Term)
-
+			flw.term = args.Term
 			flw.log("Grant vote to %d", args.CandidateID)
 		} else {
-			reply.VoteStatus = VOTE_DENIAL
-			reply.Term = flw.leaderInfo.term
-			flw.log("Vote request from %d denialed cause of stale logs", args.CandidateID)
+			reply.VoteStatus = VOTE_OTHER
+			reply.Term = flw.term
+			flw.log("Vote request from %d rejected cause of stale logs", args.CandidateID)
 		}
 	} else {
 		reply.VoteStatus = VOTE_OTHER
@@ -128,71 +140,48 @@ func (flw *Follower) requestVote(args *RequestVoteArgs, reply *RequestVoteReply)
 	flw.voteTo = voteTo
 }
 
-func (flw *Follower) leaderValid(args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	if args.Term < flw.leaderInfo.term {
-		reply.Term = flw.leaderInfo.term
-		reply.Success = false
-		return false
+func (flw *Follower) appendEntries(req *AppendEntriesReq) {
+	if !flw.TryRLock() { 
+		req.finishCh <- true
+		return 
 	}
-	return true
-}
 
-func (flw *Follower) appendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	defer func() {
+		req.finishCh <- true
+		flw.RUnlock()
+	}()
 
-	if !flw.leaderValid(args, reply) { return }
+	args, reply := req.args, req.reply
+	rf := flw.rf
+	reply.Term = args.Term
+
+	// reject stale leaders.
+	if args.Term < flw.term {
+		reply.Term = flw.term
+		reply.EntryStatus = ENTRY_STALE
+		return
+	}
 
 	flw.resetHeartBeatTimer(HEARTBEAT_TIMEOUT...)
 
-	// leader changed
-	if args.Term > flw.leaderInfo.term {
-		flw.updateLeader(args.Id, args.Term)
-	}
-
-	// heartBeat message
-	// if len(args.Entries) == 0 { return }
-	
-	rf := flw.rf
+	// update term and last commited index.
+	flw.term = args.Term
+	rf.logs.updateCommitIndex(args.LeaderCommit)
 
 	// heartBeat message
 	if args.Entries == nil {
 		flw.log("Receive HeartBeat from [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.LeaderCommit)
 
-		rf.logs.lastCommitedIndex.Store(int32(minInt(rf.logs.lastLogIndex(), args.LeaderCommit)))
 		flw.log("HeartBeat: Update last commit index to %d", rf.logs.lastCommitedIndex.Load())
 		go rf.applyLogs()
 		
 		return
 	}
 
+	
 	flw.log("Receive AppendEntries request from [%d/%d], prev log info [%d/%d], LeaderCommit = %d.", args.Id, args.Term, args.PrevLogIndex, args.PrevLogTerm, args.LeaderCommit)
 
-	// Update LeaderCommit in advance, so the prev log index can match.
-	rf.logs.updateCommitIndex(args.LeaderCommit)
-	flw.log("Before: Update last commit index to %d", rf.logs.lastCommitedIndex.Load())
-
-	lastCommitedIndex, lastCommitedTerm := rf.logs.lastCommitedLogInfo()
-
-	if lastCommitedIndex > args.PrevLogIndex {
-
-		flwPrevLogTerm := rf.logs.indexLogTerm(args.PrevLogIndex)
-		reply.Success = flwPrevLogTerm == args.PrevLogTerm
-		flw.log("Receive leader old entry [%d/%d], flwPrevLogTerm = %d", args.PrevLogIndex, args.PrevLogTerm, flwPrevLogTerm)
-
-	} else if lastCommitedIndex == args.PrevLogIndex && 
-	lastCommitedTerm == args.PrevLogTerm {
-
-		reply.Success = true
-		rf.logs.appendEntry(args.Entries)
-		rf.logs.updateCommitIndex(args.LeaderCommit)
-		flw.log("After: Update last commit index to %d", rf.logs.lastCommitedIndex.Load())
-
-		go rf.applyLogs()
-
-	} else {
-		reply.Success = false
-		flw.log("Leader [%d/%d] does not match follower [%d/%d]", args.PrevLogIndex, args.PrevLogTerm, lastCommitedIndex, lastCommitedTerm)
-	}
-
+	reply.EntryStatus = rf.logs.followerAppendEntry(args)
 }
 
 func (flw *Follower) updateLeader(id int, term int) {
@@ -203,4 +192,8 @@ func (flw *Follower) updateLeader(id int, term int) {
 
 func (flw *Follower) log(format string, args ...interface{}) {
 	log.Printf("[Follower %d/%d/%d] %s\n", flw.rf.me, flw.leaderInfo.term, flw.rf.logs.lastCommitedIndex.Load(), fmt.Sprintf(format, args...))
+}
+
+func (flw *Follower) fatal(format string, args ...interface{}) {
+	log.Fatalf("[Follower %d/%d/%d] %s\n", flw.rf.me, flw.leaderInfo.term, flw.rf.logs.lastCommitedIndex.Load(), fmt.Sprintf(format, args...))
 }

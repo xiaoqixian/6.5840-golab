@@ -79,6 +79,8 @@ type Candidate struct {
 	reelectTimer *time.Timer
 
 	rf *Raft
+
+	sync.RWMutex
 }
 
 func (*Candidate) role() RoleEnum { return CANDIDATE }
@@ -121,7 +123,19 @@ func (cd *Candidate) waitUpdate() {
 	for cd.status.Load() == POLL_UPDATING {}
 }
 
-func (cd *Candidate) requestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
+func (cd *Candidate) requestVote(req *RequestVoteReq) {
+	if !cd.TryRLock() {
+		req.finishCh <- true
+		return
+	}
+	defer func() {
+		req.finishCh <- true
+		cd.RUnlock()
+	}()
+
+	args, reply := req.args, req.reply
+	reply.Responsed = true
+
 	rf := cd.rf
 	reply.VoterID = rf.me
 
@@ -221,7 +235,7 @@ func (cd *Candidate) startElection() {
 				break election
 
 			default:
-				cd.fatalf("Unknown status: %d", cd.status.Load().(CandidateStatus))
+				cd.fatal("Unknown status: %d", cd.status.Load().(CandidateStatus))
 			}
 		}
 	}
@@ -301,7 +315,19 @@ func (cd *Candidate) auditVote(reply *RequestVoteReply) {
 // for the follower. 
 // So the transformed follower may receive the same RPC call after 
 // the leader has an AppendEntries timeout.
-func (cd *Candidate) appendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+func (cd *Candidate) appendEntries(req *AppendEntriesReq) {
+	if !cd.TryRLock() {
+		req.finishCh <- true
+		return
+	}
+	defer func() {
+		req.finishCh <- true
+		cd.RUnlock()
+	}()
+
+	args, reply := req.args, req.reply
+	reply.Responsed = true
+
 	if args.Entries == nil {
 		cd.log("Receive HeartBeat from [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.LeaderCommit)
 	} else {
@@ -324,6 +350,6 @@ func (cd *Candidate) log(format string, args ...interface{}) {
 	// log.Printf("[Candidate %d/%d] " + format + "\n", cd.rf.me, cd.term.Load())
 }
 
-func (cd *Candidate) fatalf(format string, args ...interface{}) {
+func (cd *Candidate) fatal(format string, args ...interface{}) {
 	log.Fatalf("[Candidate %d/%d/%d] %s\n", cd.rf.me, cd.term.Load(), cd.rf.logs.lastCommitedIndex.Load(), fmt.Sprintf(format, args...))
 }

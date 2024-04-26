@@ -17,9 +17,12 @@ type AppendEntriesArgs struct {
 }
 
 type AppendEntriesReply struct {
-	Success bool
-	Term int // for leader to update itself.
-	Received bool // indicate that the follower confirm this RPC.
+	EntryStatus EntryStatus
+	// for leader to update itself.
+	Term int
+	// indicate that the RPC request is explicitly 
+	// processed by the remote.
+	Responsed bool
 }
 
 // example RequestVote RPC arguments structure.
@@ -40,4 +43,5 @@ type RequestVoteReply struct {
 	Term int // for candidate to update itself
 	VoterID int
 	VoteStatus VoteStatus
+	Responsed bool
 }

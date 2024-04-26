@@ -95,6 +95,32 @@ func (logs *Logs) appendEntry(et *LogEntry) (int, int) {
 	}
 }
 
+func (logs *Logs) followerAppendEntry(args *AppendEntriesArgs) EntryStatus {
+	et, prevLogIndex, prevLogTerm := args.Entries, args.PrevLogIndex, args.PrevLogTerm
+	li := len(logs.entries)-1
+	lci := int(logs.lastCommitedIndex.Load())
+
+	assert(lci <= prevLogIndex)
+
+	// avoid index overflow.
+	switch {
+	case li < prevLogIndex:
+		return ENTRY_FAILURE
+
+	case prevLogTerm == logs.entries[prevLogIndex].Term:
+		logs.entries = logs.entries[:prevLogIndex+1]
+		logs.entries = append(logs.entries, et)
+		logs.updateCommitIndex(args.LeaderCommit)
+		return ENTRY_SUCCESS
+
+	default:
+		if lci == prevLogIndex {
+			assert(prevLogTerm == logs.entries[lci].Term)
+		}
+		return ENTRY_FAILURE
+	}
+}
+
 func (logs *Logs) removeUncommitedTail() {
 	logs.Lock()
 	defer logs.Unlock()

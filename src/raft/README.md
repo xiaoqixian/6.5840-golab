@@ -2,9 +2,13 @@
 
 #### Architectures
 
-##### Follower
+​	在架构层面, 贴合 golang 的设计哲学, 尽可能地使用 channel 而不是锁. 对所有的 RPC 调用使用 channel 进行序列化处理, 保证每个节点在同一时刻只处理一个请求.
 
-​	
+##### RPC Processor
+
+​	一个节点层面(我将代码分为节点层面和角色层面) 运行的循环, 相当于 request channel 的消费端, 负责不断从 channel 中取出请求并基于请求类型分发给角色层面的处理函数, 从接口层面保证了所有的角色都具有相同的处理函数. 
+
+​	这个循环是单线程运行的, 尽可能减少并发度, 因为在代码上并没有很多计算复杂的逻辑, 所以使用单线程处理完全可以 hold 住. 
 
 #### A. Leader Election
 
@@ -59,13 +63,23 @@
 
    
 
-##### 并发与锁
+#### 并发与锁
 
-​	每个节点应该表现为一个被动触发的有限状态机, 主线程只运行一个死循环保证程序不会退出. 其它操作由定时器和 RPC 调用触发完成. 而节点的所有操作是基于当前的身份来完成的, 这引出一个问题: 如何保证节点被并发触发时的一致性. 
+##### channel 保护锁
 
-1. 节点的身份由一个读写锁来保护, 为了保证节点的可用性, 强调锁的快速释放.
-2. follower 的投票只能投票给一个节点, 因此需要一个锁来保护. 
-3. 节点的所有 entries 需要通过锁来保护.
+​	当节点进行角色转换时, 需要将 channel 清空, 做法就是将 channel 重新赋值给一个新的 channel. 但是由于 RPC 调用随时会到达, 所以需要用一个读写锁进行保护. 
+
+​	当 RPC 调用发生时, 必须要抢占读锁才可以向 channel 发送请求; 在进行角色转换时, 则需要等待 写锁. 
+
+​	那 RPC processor 线程是否需要等待读锁呢? 答案是不需要, 因为我们可以保证 RPC process 每次从 channel 获取请求时, 总是处于角色的“运行” 状态而不是 “转换中” 状态. 
+
+##### 安全的身份转换
+
+​	在 Raft 中存在多种随机时限之后的身份转换, 身份转换要求能够角色运行的状态可以被安全地打断, 然后跳转到另一个状态中. 
+
+​	为了保证角色协程的运行可以随时被打断, 需要使用读写锁进行保护. 然后在角色的操作开始前要尝试获取读锁, 获取失败时只可能表示角色已经发生转换, 应该立刻退出.
+
+​	以 follower heartbeat timeout 之后跳转到 candidate 为例. 为 follower 定义一个读写锁, 对于每一次外部调用, 如 `requestVote` 或 `appendEntries`, 则试图占用读锁, 如果无法占用, 则直接返回; 
 
 ##### Candidate status atomic value
 
@@ -101,7 +115,44 @@ const (
 
 ​	Leader 上任时, 会为每个 peer (不包括自己) 开一个协程, 用于分发 entry, 这些协程会定期检查 entry 数组是否有可分发的 entry, 这个过程需要由 leader 封装, leader 不会透露超过自己的 commit index 之后的 entry, 防止出现提交不一致的情况. 随后该协程通过 RPC 调用分发到各 peer 节点, 分发成功后通过一个 channel 告知 leader 的某个协程. leader 在确定自己的 commit 索引处的 entry 已经大部分提交了以后, 自动加一. 
 
-##### 候选者上任过程
+##### Follower 添加 entry 流程
+
+1. 检查 `prevLogIndex`, 若大于自己的 LCI, 则说明自己落后于 leader, 回复 `false`.
+2. 若刚好等于自己的 LCI, 则说明是新的 entry, 直接添加到 LCI 之后的位置上(不管该位置是否存有entry).
+
+#### Leader
+
+##### init
+
+- 删除 last commit index 之后的所有 log entries.
+
+- 开启发送心跳信息的协程, 定期向其它 peers 发送空 `AppendEntries` RPC
+
+- 开启向其它 peers 发送 replications 的协程, 每个 peer 对应一条协程; 该协程不断检查对应 peer 是否有可以发送的 log entry. 当 peer 对一条 entry replication 表示确认时, 发送一个 `ReplConfirm` 到 replication confirmation channel.
+
+  ```go
+  type ReplConfirm struct {
+  	index int
+  	peerId int
+  }
+  ```
+
+- 开启回复确认的协程, 负责统计peers的回复确认, 并更新自己的 last commit index.
+
+- 开启一个等待退休消息的协程, 有多条可能让 leader 退休的协程, 
+
+- 发送一个 `NoopEntry` 给自己, 从而将前任的一些 entries 复制到那些未跟上的 peers.
+
+##### request vote
+
+​	基于 vote request term 可能有两种情况:
+
+1. `vote term <= leader term`: 则认定为非法选举, 回复 `vote denial`. 
+2. `>`: 合法选举, leader 应该自愿让权, 转换为 follower, 同时将自己的 term 更新为 `vote term`.
+
+##### append entries
+
+​	
 
 ##### 主从Log同步过程
 
