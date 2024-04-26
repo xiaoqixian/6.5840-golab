@@ -63,7 +63,8 @@ const (
 )
 
 type Candidate struct {
-	term atomic.Int32
+	term int
+	termLock sync.RWMutex
 	receivedVotes atomic.Uint32
 
 	status atomic.Value
@@ -125,8 +126,9 @@ func (cd *Candidate) requestVote(args *RequestVoteArgs, reply *RequestVoteReply)
 	rf := cd.rf
 	reply.VoterID = rf.me
 
-	cd.waitUpdate()
-	term := int(cd.term.Load())
+	cd.termLock.RLock()
+	term := cd.term
+	cd.termLock.RUnlock()
 
 	if args.Term > term {
 		// cd.status.CompareAndSwap(POLLING, DEFEATED)
@@ -150,15 +152,18 @@ func (cd *Candidate) startElection() {
 	cd.log("Election info: last commit index = %d, last commit term = %d", args.LastLogIndex, args.LastLogTerm)
 	
 	election: for {
+
 		if cd.status.CompareAndSwap(POLLING, POLL_UPDATING) {
+			cd.termLock.Lock()
 			cd.log("New round election")
-			cd.term.Add(1)
+			cd.term++
 			cd.receivedVotes.Store(0)
 			cd.voters = make([]bool, len(rf.peers))
 			cd.setElectionTimer()
+			cd.termLock.Unlock()
 
 			// update RequestVoteArgs
-			args.Term = int(cd.term.Load())
+			args.Term = cd.term
 			
 			assert(cd.status.Load() == POLL_UPDATING)
 			cd.status.CompareAndSwap(POLL_UPDATING, POLLING)
@@ -167,13 +172,13 @@ func (cd *Candidate) startElection() {
 			break election
 		}
 
-		cd.log("Election restart with term %d", cd.term.Load())
+		cd.log("Election restart with term %d", cd.term)
 
 		for i, peer := range rf.peers {
 			if cd.status.Load() != POLLING { break }
 			if i == rf.me { continue }
 
-			go func(peer *labrpc.ClientEnd, args *RequestVoteArgs, peerId int, currTerm int32) {
+			go func(peer *labrpc.ClientEnd, args *RequestVoteArgs, peerId int, currTerm int) {
 				reply := &RequestVoteReply {}				
 				ok := peer.Call("Raft.RequestVote", args, reply)
 				cd.log("Request vote from %d", peerId)
@@ -186,10 +191,13 @@ func (cd *Candidate) startElection() {
 					ok = peer.Call("Raft.RequestVote", args, reply)
 					cd.log("Request vote from %d", peerId)
 				}
-				if ok && currTerm == cd.term.Load() {
+
+				cd.termLock.RLock()
+				if ok && currTerm == cd.term {
 					cd.auditVote(reply)
 				}
-			}(peer, args, i, cd.term.Load())
+				cd.termLock.RUnlock()
+			}(peer, args, i, cd.term)
 		}
 
 		for {
@@ -233,8 +241,8 @@ func candidateFromFollower(r Role) Role {
 		rf: flw.rf,
 		voters: make([]bool, len(flw.rf.peers)),
 		VOTES_TO_WIN: uint32(len(flw.rf.peers)/2),
+		term: flw.term,
 	}
-	cd.term.Store(int32(flw.leaderInfo.term))
 	cd.status.Store(POLLING)
 	return cd
 }
