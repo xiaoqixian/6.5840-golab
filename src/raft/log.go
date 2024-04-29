@@ -4,50 +4,60 @@
 
 package raft
 
-import (
-	"sync"
-	"sync/atomic"
+import "sync/atomic"
+
+type EntryType uint8
+const (
+	ENTRY_NORMAL EntryType = iota
+	ENTRY_NOOP
 )
 
 type LogEntry struct {
+	Type EntryType
 	Term int
 	Content interface{}
 }
+type PrevLogInfo struct {
+	Index int
+	Term int
+}
+
+type Applier struct {
+	applyCh chan ApplyMsg
+	count int
+}
+
 type Logs struct {
 	entries []*LogEntry
-	lastCommitedIndex atomic.Int32
-	lastAppliedIndex atomic.Int32
-	applyCh chan ApplyMsg
-	applyCount int
-	entryCount int
-	sync.RWMutex
-
+	lci atomic.Int32
+	lli atomic.Int32
+	lai atomic.Int32
+	noopCount int
 	rf *Raft
-
-	applyLock sync.Mutex
+	applier *Applier
 }
 
 func newLogs(rf *Raft, applyCh chan ApplyMsg) *Logs {
 	logs := &Logs {
-		applyCh: applyCh,
 		rf: rf,
+		applier: &Applier {
+			count: 0,
+			applyCh: applyCh,
+		},
 	}
-	logs.lastCommitedIndex.Store(-1)
-	logs.lastAppliedIndex.Store(-1)
+	logs.lci.Store(-1)
+	logs.lli.Store(-1)
+	logs.lai.Store(-1)
 	return logs
 }
 
-func (logs *Logs) lastLogIndex() int {
-	logs.RLock()
-	defer logs.RUnlock()
-	return len(logs.entries)-1
+func (logs *Logs) updateCommit(leaderCommit int) {
+	assert(leaderCommit >= int(logs.lci.Load()))
+	logs.lci.Store(int32(minInt(leaderCommit, int(logs.lli.Load()))))
 }
 
 func (logs *Logs) indexLogTerm(idx int) int {
-	logs.RLock()
-	defer logs.RUnlock()
-
-	if idx < 0 || idx >= len(logs.entries) {
+	if idx < 0 || idx > logs.LLI() {
 		return -1
 	} else {
 		return logs.entries[idx].Term
@@ -55,115 +65,55 @@ func (logs *Logs) indexLogTerm(idx int) int {
 }
 
 func (logs *Logs) indexLogEntry(idx int) *LogEntry {
-	logs.RLock()
-	defer logs.RUnlock()
-	return logs.entries[idx]
-}
-
-func (logs *Logs) lastCommitedLogIndex() int {
-	return int(logs.lastCommitedIndex.Load())
-}
-
-func (logs *Logs) lastCommitedLogTerm() int {
-	logs.RLock()
-	defer logs.RUnlock()
-	idx := logs.lastLogIndex()
-	return logs.indexLogTerm(idx)
-}
-
-// return the index, term of the last log.
-func (logs *Logs) lastCommitedLogInfo() (int, int) {
-	logs.RLock()
-	defer logs.RUnlock()
-	idx := int(logs.lastCommitedIndex.Load())
-	return idx, logs.indexLogTerm(idx)
-}
-
-// return the index of this command and the index of this log.
-func (logs *Logs) appendEntry(et *LogEntry) (int, int) {
-	logs.Lock()
-	defer logs.Unlock()
-	logs.entries = append(logs.entries, et)
-	logIndex := len(logs.entries)-1
-
-	switch et.Content.(type) {
-	case NoopEntry:
-		return -1, logIndex
-	default:
-		logs.entryCount++
-		return logs.entryCount, logIndex
+	if idx < 0 || idx > logs.LLI() {
+		return nil
+	} else {
+		return logs.entries[idx]
 	}
 }
 
-func (logs *Logs) followerAppendEntry(args *AppendEntriesArgs) EntryStatus {
-	et, prevLogIndex, prevLogTerm := args.Entries, args.PrevLogIndex, args.PrevLogTerm
-	li := len(logs.entries)-1
-	lci := int(logs.lastCommitedIndex.Load())
+func (logs *Logs) followerAppendEntry(et *LogEntry, prev PrevLogInfo) bool {
+	assert(prev.Index >= int(logs.lci.Load()))
 
-	assert(lci <= prevLogIndex)
+	myPrevTerm := logs.indexLogTerm(prev.Index)
 
-	// avoid index overflow.
-	switch {
-	case li < prevLogIndex:
-		return ENTRY_FAILURE
-
-	case prevLogTerm == logs.entries[prevLogIndex].Term:
-		logs.entries = logs.entries[:prevLogIndex+1]
+	if myPrevTerm == prev.Term {
+		logs.entries = logs.entries[:prev.Index+1]
 		logs.entries = append(logs.entries, et)
-		logs.updateCommitIndex(args.LeaderCommit)
-		return ENTRY_SUCCESS
-
-	default:
-		if lci == prevLogIndex {
-			assert(prevLogTerm == logs.entries[lci].Term)
-		}
-		return ENTRY_FAILURE
+		logs.lli.Store(int32(len(logs.entries)-1))
+		return true
 	}
+	return false
 }
 
-func (logs *Logs) removeUncommitedTail() {
-	logs.Lock()
-	defer logs.Unlock()
-	lci := int(logs.lastCommitedIndex.Load())
-	assert(lci < len(logs.entries))
-	logs.entries = logs.entries[:lci+1]
-}
-func (logs *Logs) updateCommitIndex(leaderCommit int) {
-	logs.lastCommitedIndex.Store(int32(minInt(
-		logs.lastLogIndex(), leaderCommit)))
-}
+func (logs *Logs) leaderAppendEntry(et *LogEntry) (int, int) {
+	logs.entries = append(logs.entries, et)
+	logs.lli.Store(int32(len(logs.entries)-1))
 
-func (rf *Raft) applyLogs() int {
-	// only allow one goroutine applying logs at a time.
-	logs := rf.logs
-	if !logs.applyLock.TryLock() {
-		return 0
+	switch et.Type {
+	case ENTRY_NOOP:
+		logs.noopCount++
+		return len(logs.entries)-1, -1
+		
+	case ENTRY_NORMAL:
+		return len(logs.entries)-1, len(logs.entries)-logs.noopCount
 	}
-	defer logs.applyLock.Unlock()
+	return -1, -1
+}
 
-	ai, ci := logs.lastAppliedIndex.Load(), logs.lastCommitedIndex.Load()
-	rf.log("ai = %d, ci = %d", ai, ci)
-	assert(ai <= ci)
-	
-	logs.RLock()
-	defer logs.RUnlock()
-	for i := ai+1; i <= ci; i++ {
-		entry := logs.entries[i]
-		switch entry.Content.(type) {
-		case NoopEntry:
-			logs.rf.log("Found a NoopEntry with index %d", i)
-		default:
-			logs.applyCount++
-			logs.applyCh <- ApplyMsg {
-				CommandValid: true,
-				Command: entry.Content,
-				CommandIndex: logs.applyCount,
-			}
-			logs.rf.log("Applied ApplyMsg with index %d", logs.applyCount)
-		}
-	}
+func (logs *Logs) removeUncommittedTail() {
+	logs.entries = logs.entries[:logs.lci.Load()+1]
+	logs.lli.Store(int32(len(logs.entries)-1))
+}
 
-	logs.lastAppliedIndex.Store(ci)
-	
-	return int(ci - ai)
+func (logs *Logs) LCI() int {
+	return int(logs.lci.Load())
+}
+
+func (logs *Logs) LLI() int {
+	return int(logs.lli.Load())
+}
+
+func (logs *Logs) LAI() int {
+	return int(logs.lai.Load())
 }

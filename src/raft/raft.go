@@ -62,19 +62,10 @@ const (
 type Role interface {
 	role() RoleEnum
 
-	// This is supposed to be a short function
-	// as the roleLock is locked the whole time 
-	// during this function execution.
-	// So if you need to run a long time task, 
-	// use goroutine.
-	init()
-	finish()
-	kill()
-	// this method should be atomic
-	name() string
-
-	requestVote(*RequestVoteReq)
-	appendEntries(*AppendEntriesReq)
+	closed() bool
+	activate()
+	process(Event)
+	stop()
 
 	log(string, ...interface{})
 	fatal(string, ...interface{})
@@ -86,78 +77,38 @@ type Raft struct {
 	persister *Persister          // Object to hold this peer's persisted state
 	me        int                 // this peer's index into peers[]
 	dead      atomic.Bool
+	majorN    int
 
 	role Role
-	roleLock sync.RWMutex
 
 	logs *Logs
 
-	rpcReqChan chan RpcReq
-}
+	applyCh chan ApplyMsg
 
-func (rf *Raft) transRole(f func(Role) Role) {
-	rf.roleLock.Lock()
-	defer rf.roleLock.Unlock()
-
-	rf.role.finish()
-	// clear req channel after transition.
-	rf.rpcReqChan = make(chan RpcReq)
-
-	_old_name := rf.role.name()
-	rf.role = f(rf.role)
-	log.Printf("[Raft %d] Trans role from %s to %s", rf.me, _old_name, rf.role.name())
-	rf.role.init()
-}
-
-func (rf *Raft) rpcProcessor() {
-	for !rf.dead.Load() {
-		rf.roleLock.RLock()
-		req := <- rf.rpcReqChan
-		rf.roleLock.RUnlock()
-
-		switch req := req.(type) {
-		case *AppendEntriesReq:
-			rf.role.appendEntries(req)
-
-		case *RequestVoteReq:
-			rf.role.requestVote(req)
-
-		default:
-			rf.role.fatal("Unknown req type")
-		}
-	}
+	evCh chan Event
+	// the chLock is only used by goroutines, cause they don't 
+	// know if they could push events to the channel.
+	// the chLock is write locked until the role is activated, 
+	// and relocked when the role is stopped again.
+	chLock sync.RWMutex
 }
 
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-	rf.roleLock.RLock()
-	defer rf.roleLock.RUnlock()
-
-	switch role := rf.role.(type) {
-	case *Follower:
-		if role.leaderInfo == nil {
-			return -1, false
-		} else {
-			return role.leaderInfo.term, false
+	if !rf.dead.Load() {
+		ch := make(chan *NodeState, 1)
+		var state *NodeState
+		for ; state == nil; state = <- ch {
+			// rf.chLock.RLock()
+			rf.evCh <- &GetStateEvent {
+				ch: ch,
+			}
+			// rf.chLock.RUnlock()
 		}
-		
-	case *Candidate:
-		return int(role.term.Load()), false
-
-	case *Leader:
-		return role.term, true
-
-	default:
-		return -1, false
+		return state.term, state.isLeader
 	}
-}
-
-// this function should be seen as atomic.
-func (rf *Raft) Role() RoleEnum {
-	rf.roleLock.RLock()
-	defer rf.roleLock.RUnlock()
-	return rf.role.role()
+	return -1, false
 }
 
 // save Raft's persistent state to stable storage,
@@ -211,35 +162,57 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if !rf.dead.Load() {
-		rf.log("RequestVote from [%d/%d], lastCommitedIndex = %d", args.CandidateID, args.Term, args.LastLogIndex)
-		finishCh := make(chan bool, 1)
-
-		rf.roleLock.RLock()
-		rf.rpcReqChan <- &RequestVoteReq {
+		ch := make(chan bool, 1)
+		rf.chLock.RLock()
+		rf.evCh <- &RequestVoteEvent {
 			args: args,
 			reply: reply,
-			finishCh: finishCh,
+			ch: ch,
 		}
-		rf.roleLock.RUnlock()
-
-		<- finishCh
+		rf.chLock.RUnlock()
+		reply.Responsed = <- ch
 	}
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	if !rf.dead.Load() {
-		finishCh := make(chan bool, 1)
-
-		rf.roleLock.RLock()
-		rf.rpcReqChan <- &AppendEntriesReq {
+		ch := make(chan bool, 1)
+		rf.chLock.RLock()
+		rf.evCh <- &AppendEntriesEvent {
 			args: args,
 			reply: reply,
-			finishCh: finishCh,
+			ch: ch,
 		}
-		rf.roleLock.RUnlock()
-
-		<- finishCh
+		rf.chLock.RUnlock()
+		reply.Responsed = <- ch
 	}
+}
+
+func (rf *Raft) processor() {
+	for !rf.dead.Load() {
+		ev := <- rf.evCh
+		switch ev.(type) {
+		case *TransEvent:
+			rf.log("Leaving")
+			rf.role.activate()
+			rf.log("Entered")
+
+		default:
+			if !rf.role.closed() {
+				rf.role.process(ev)
+			} else {
+				rf.log("Abandoned %s", typeName(ev))
+				abandonEv(ev)
+			}
+		}
+	}
+}
+
+func (rf *Raft) transRole(f func(Role) Role) {
+	rf.role.stop()
+	rf.role = f(rf.role)
+	rf.evCh <- &TransEvent{}
+	rf.log("Transed")
 }
 
 // example code to send a RequestVote RPC to a server.
@@ -284,15 +257,19 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 // term. the third return value is true if this server believes it is
 // the leader.
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	// Your code here (3B).
-	rf.roleLock.Lock()
-	defer rf.roleLock.Unlock()
+	if !rf.dead.Load() {
+		ch := make(chan *StartCommandReply, 1)
 
-	switch role := rf.role.(type) {
-	case *Leader:
-		idx, term := role.addEntry(command)
-		rf.log("Add command at index %d with term %d", idx, term)
-		return idx, term, true
+		var reply *StartCommandReply
+		for ; reply == nil; reply = <- ch {
+			rf.chLock.RLock()
+			rf.evCh <- &StartCommandEvent {
+				command: command,
+				ch: ch,
+			}
+			rf.chLock.RUnlock()
+		}
+		return reply.index, reply.term, reply.ok
 	}
 	return -1, -1, false
 }
@@ -308,7 +285,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // should call killed() to check whether it should stop.
 func (rf *Raft) Kill() {
 	rf.dead.Store(true)
-	rf.role.kill()
 	// Your code here, if desired.
 }
 
@@ -352,27 +328,40 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		peers: peers,
 		persister: persister,
 		me: me,
-		rpcReqChan: make(chan RpcReq),
+		evCh: make(chan Event),
+		majorN: len(peers)/2+1,
 	}
+	rf.chLock.Lock()
 	rf.logs = newLogs(rf, applyCh)
+	
+	flw := &Follower {
+		term: -1,
+		rf: rf,
+	}
+	rf.role = flw
 
 	// Your initialization code here (3A, 3B, 3C).
 
-	flw := &Follower {
-		rf: rf,
-		term: 0,
-	}
-	rf.role = flw
-	flw.init()
-
-	// initialize from state persisted before a crash
-	rf.readPersist(persister.ReadRaftState())
-
-	// start ticker goroutine to start elections
-	// go rf.ticker()
-	go rf.rpcProcessor()
+	go rf.processor()
+	time.Sleep(100 * time.Millisecond)
+	rf.evCh <- &TransEvent{}
 
 	return rf
+}
+
+
+func (rf *Raft) tryPutEv(ev Event, role Role) bool {
+	if !rf.chLock.TryRLock() {
+		return false
+	}
+	defer rf.chLock.RUnlock()
+
+	if !role.closed() {
+		rf.evCh <- ev
+		rf.log("Put ev %s", typeName(ev))
+		return true
+	} 
+	return false
 }
 
 func (rf *Raft) log(format string, args ...interface{}) {

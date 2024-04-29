@@ -7,6 +7,7 @@ package raft
 import (
 	"log"
 	"math/rand"
+	"reflect"
 	"runtime"
 	"time"
 )
@@ -17,11 +18,12 @@ const (
 	RPC_CALL_TRY_TIMES = 5
 	NEW_LOG_CHECK_FREQ = time.Duration(20 * time.Millisecond)
 	CANDIDATE_CHECK_FREQ = time.Duration(10 * time.Millisecond)
+	APPEND_WAITING = time.Duration(10 * time.Millisecond)
 )
 var (
 	HEARTBEAT_TIMEOUT = []int{ 150, 300 }
 	POLL_TIMEOUT_DURATION = []int{ 150, 300 }
-	ELECTION_TIMEOUT_WAITING_DURATION = []int{ 100, 200 }
+	ELECTION_TIMEOUT = []int{ 100, 200 }
 	// heartbeat timeout should be longer thant normal heartbeat timeout.
 	LEADER_INIT_HEARTBEAT_TIMEOUT = []int{ 500, 800 }
 )
@@ -99,4 +101,8 @@ func minInt(x int, y int) int {
 func maxInt(x int, y int) int {
 	if x >= y { return x }
 	return y
+}
+
+func typeName(a interface{}) string {
+	return reflect.TypeOf(a).String()
 }
