@@ -50,11 +50,15 @@ func (ld *Leader) activate() {
 	ld.startReplication()
 }
 
-func (ld *Leader) stop() {
-	ld.rf.chLock.Lock()
-	ld.active.Store(false)
-	if ld.hbTimer != nil {
-		ld.hbTimer.kill()
+func (ld *Leader) stop() bool {
+	if ld.active.CompareAndSwap(true, false) {
+		if ld.hbTimer != nil {
+			ld.hbTimer.kill()
+		}
+		ld.rf.chLock.Lock()
+		return true
+	} else {
+		return false
 	}
 }
 
@@ -77,6 +81,7 @@ func (ld *Leader) process(ev Event) {
 			term: ld.term,
 			index: commandIndex,
 		}
+		ld.log("Start a command with index = %d, commandIndex = %d", logIndex, commandIndex)
 		ld.rc.watchIndex(logIndex)
 
 	case *AppendEntriesEvent:
@@ -91,16 +96,20 @@ func (ld *Leader) process(ev Event) {
 	case *ReplConfirmEvent:
 		ld.rc.confirm(ev.index, ev.id)
 
+	case *StaleLeaderEvent:
+		ld.term = ev.newTerm
+		ld.rf.transRole(followerFromLeader)
+
 	default:
 		ld.fatal("Unknown event type: %s", typeName(ev))
 	}
 }
 
 func (ld *Leader) log(format string, args ...interface{}) {
-	log.Printf("[Follower %d/%d] %s", ld.rf.me, ld.term, fmt.Sprintf(format, args...))
+	log.Printf("[Leader %d/%d] %s", ld.rf.me, ld.term, fmt.Sprintf(format, args...))
 }
 func (ld *Leader) fatal(format string, args ...interface{}) {
-	log.Fatalf("[Follower %d/%d] %s", ld.rf.me, ld.term, fmt.Sprintf(format, args...))
+	log.Fatalf("[Leader %d/%d] %s", ld.rf.me, ld.term, fmt.Sprintf(format, args...))
 }
 
 func leaderFromCandidate(r Role) Role {
@@ -140,16 +149,9 @@ func (ld *Leader) sendHeartBeat() {
 			}
 
 			if ok && reply.EntryStatus == ENTRY_STALE {
-				ld.retire()
+				ld.rf.tryPutEv(&StaleLeaderEvent{reply.Term}, ld)
 			}
 		}(peer, i)
-	}
-}
-
-func (ld *Leader) retire() {
-	if ld.active.CompareAndSwap(true, false) {
-		ld.log("Retire")
-		ld.rf.transRole(followerFromLeader)
 	}
 }
 
@@ -169,7 +171,7 @@ func (ld *Leader) appendEntries(ev *AppendEntriesEvent) {
 	case args.Term > ld.term:
 		reply.EntryStatus = ENTRY_HOLD
 		ld.term = args.Term
-		ld.retire()
+		ld.rf.transRole(followerFromLeader)
 	}
 }
 

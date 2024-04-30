@@ -37,16 +37,24 @@ func (*Candidate) role() RoleEnum { return CANDIDATE }
 func (cd *Candidate) closed() bool { return !cd.active.Load() }
 
 func (cd *Candidate) activate() { 
-	cd.log("Activating")
-	cd.active.Store(true)
-	cd.rf.chLock.Unlock()
-	cd.startElection()
-	cd.log("Activated")
+	if cd.active.CompareAndSwap(false, true) {
+		cd.rf.chLock.Unlock()
+		cd.startElection()
+		cd.log("Activated")
+	}
 }
 
-func (cd *Candidate) stop() {
-	cd.active.Store(false)
-	cd.rf.chLock.Lock()
+func (cd *Candidate) stop() bool {
+	if cd.active.CompareAndSwap(true, false) {
+		if cd.elecTimer != nil {
+			cd.elecTimer.Stop()
+		}
+		cd.rf.chLock.Lock()
+		cd.log("Stopped")
+		return true
+	} else {
+		return false
+	}
 }
 
 func (cd *Candidate) process(ev Event) {
@@ -58,7 +66,7 @@ func (cd *Candidate) process(ev Event) {
 		}
 
 	case *StartCommandEvent:
-		ev.ch <- nil
+		ev.ch <- &StartCommandReply { false, -1, -1 }
 
 	case *AppendEntriesEvent:
 		cd.appendEntries(ev)
@@ -71,6 +79,10 @@ func (cd *Candidate) process(ev Event) {
 
 	case *ElectionEvent:
 		cd.startElection()
+
+	case *StaleCandidateEvent:
+		cd.term = ev.newTerm
+		cd.rf.transRole(followerFromCandidate)
 
 	default:
 		cd.log("Unknown event %s", typeName(ev))
@@ -89,7 +101,7 @@ func (cd *Candidate) fatal(format string, args ...interface{}) {
 
 func (cd *Candidate) setElecTimer() {
 	d := genRandomDuration(ELECTION_TIMEOUT...)
-	cd.log("Election timeout after %d", d)
+	cd.log("Election timeout after %s", d)
 	rf := cd.rf
 	if cd.elecTimer == nil || cd.elecTimer.Reset(d) {
 		cd.elecTimer = time.AfterFunc(d, func() {
@@ -134,12 +146,11 @@ func (cd *Candidate) startElection() {
 
 				case VOTE_OTHER:
 					if reply.Term > cd.term {
-						rf.transRole(followerFromCandidate)
+						rf.tryPutEv(&StaleCandidateEvent{reply.Term}, cd)
 					}
 					
 				case VOTE_DENIAL:
-					rf.transRole(followerFromCandidate)
-					return
+					rf.tryPutEv(&StaleCandidateEvent{cd.term}, cd)
 
 				case VOTE_DEFAULT:
 					cd.fatal("Unprocessed vote request from %d", reply.VoterID)
@@ -168,7 +179,7 @@ func (cd *Candidate) appendEntries(ev *AppendEntriesEvent) {
 	switch {
 	case args.Term >= cd.term:
 		cd.term = args.Term
-		cd.rf.transRole(followerFromLeader)
+		cd.rf.transRole(followerFromCandidate)
 		reply.EntryStatus = ENTRY_HOLD
 
 	case args.Term < cd.term:
@@ -194,7 +205,7 @@ func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 		}
 
 		cd.term = args.Term
-		cd.rf.transRole(followerFromLeader)
+		cd.rf.transRole(followerFromCandidate)
 	}
 }
 
@@ -204,6 +215,7 @@ func (cd *Candidate) auditVote(ev *VoteGrantEvent) {
 		cd.votes++
 
 		if cd.votes >= cd.rf.majorN {
+			cd.log("Elected")
 			cd.rf.transRole(leaderFromCandidate)
 		}
 	}

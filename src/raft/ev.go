@@ -63,6 +63,8 @@ type GetStateEvent struct {
 	ch chan *NodeState
 }
 
+// == FOLLOWER EVENT ==
+
 type HeartBeatTimeoutEvent struct {}
 
 // == CANDIDATE EVNET ==
@@ -77,6 +79,10 @@ type VoteGrantEvent struct {
 }
 
 type SendHeartBeatEvent struct {}
+
+type StaleCandidateEvent struct {
+	newTerm int
+}
 
 // == LEADER EVNET ==
 

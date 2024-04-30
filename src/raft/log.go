@@ -31,7 +31,7 @@ type Logs struct {
 	entries []*LogEntry
 	lci atomic.Int32
 	lli atomic.Int32
-	lai atomic.Int32
+	lai int
 	noopCount int
 	rf *Raft
 	applier *Applier
@@ -44,16 +44,39 @@ func newLogs(rf *Raft, applyCh chan ApplyMsg) *Logs {
 			count: 0,
 			applyCh: applyCh,
 		},
+		lai: -1,
 	}
 	logs.lci.Store(-1)
 	logs.lli.Store(-1)
-	logs.lai.Store(-1)
 	return logs
 }
 
 func (logs *Logs) updateCommit(leaderCommit int) {
-	assert(leaderCommit >= int(logs.lci.Load()))
-	logs.lci.Store(int32(minInt(leaderCommit, int(logs.lli.Load()))))
+	if leaderCommit <= logs.LCI() {
+		return
+	}
+
+	newCommit := minInt(leaderCommit, int(logs.lli.Load()))
+	if newCommit > logs.LCI() {
+		logs.lci.Store(int32(newCommit))
+		logs.rf.log("Update LCI to %d", newCommit)
+	
+		go func(lci int) {
+			lai := logs.lai
+			assert(lai <= lci)
+			for i := lai+1; i <= lci; i++ {
+				logs.rf.applyCh <- ApplyMsg {
+					CommandValid: true,
+					CommandIndex: i,
+					Command: logs.entries[i].Content,
+				}
+				logs.rf.log("Applied log %d", i)
+			}
+
+			logs.lai = lci
+			logs.rf.log("Update LAI to %d", lci)
+		}(logs.LCI())
+	}
 }
 
 func (logs *Logs) indexLogTerm(idx int) int {
@@ -74,6 +97,10 @@ func (logs *Logs) indexLogEntry(idx int) *LogEntry {
 
 func (logs *Logs) followerAppendEntry(et *LogEntry, prev PrevLogInfo) bool {
 	assert(prev.Index >= int(logs.lci.Load()))
+
+	if prev.Index > logs.LLI() {
+		return false
+	}
 
 	myPrevTerm := logs.indexLogTerm(prev.Index)
 
@@ -112,8 +139,4 @@ func (logs *Logs) LCI() int {
 
 func (logs *Logs) LLI() int {
 	return int(logs.lli.Load())
-}
-
-func (logs *Logs) LAI() int {
-	return int(logs.lai.Load())
 }

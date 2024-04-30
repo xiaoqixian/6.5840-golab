@@ -25,23 +25,26 @@ func (*Follower) role() RoleEnum { return FOLLOWER }
 func (flw *Follower) closed() bool { return !flw.active.Load() }
 
 func (flw *Follower) activate() { 
-	flw.active.Store(true)
-	flw.rf.chLock.Unlock()
-	flw.tickHeartBeatTimer()
+	if flw.active.CompareAndSwap(false, true) {
+		flw.active.Store(true)
+		flw.rf.chLock.Unlock()
+		flw.tickHeartBeatTimer()
+	}
 }
 
-func (flw *Follower) stop() {
-	flw.active.Store(false)
-	flw.log("Stopping")
-	flw.rf.chLock.Lock()
-	flw.log("chLock locked")
-	if flw.hbTimer != nil {
-		flw.hbTimer.Stop()
+func (flw *Follower) stop() bool {
+	if flw.active.CompareAndSwap(true, false) {
+		if flw.hbTimer != nil {
+			flw.hbTimer.Stop()
+		}
+		flw.rf.chLock.Lock()
+		return true
+	} else {
+		return false
 	}
 }
 
 func (flw *Follower) process(ev Event) {
-	flw.log("Process ev %s", typeName(ev))
 	switch ev := ev.(type) {
 	case *GetStateEvent:
 		ev.ch <- &NodeState {
@@ -50,7 +53,7 @@ func (flw *Follower) process(ev Event) {
 		}
 
 	case *StartCommandEvent:
-		ev.ch <- nil
+		ev.ch <- &StartCommandReply { false, -1, -1 }
 
 	case *AppendEntriesEvent:
 		flw.appendEntries(ev)
@@ -74,7 +77,7 @@ func (flw *Follower) process(ev Event) {
 func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	flw.log("AppendEntries RPC from [%d/%d]", args.Id, args.Term)
+	flw.log("AppendEntries RPC from [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.LeaderCommit)
 	
 	if args.Term < flw.term {
 		reply.EntryStatus = ENTRY_STALE
@@ -85,6 +88,11 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	flw.term = args.Term
 	flw.rf.logs.updateCommit(args.LeaderCommit)
 	flw.tickHeartBeatTimer()
+
+	if args.Entry == nil { 
+		flw.log("Received a HeartBeat")
+		return 
+	}
 	
 	ok := flw.rf.logs.followerAppendEntry(
 		args.Entry,
@@ -121,6 +129,7 @@ func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 	case args.Term > flw.term:
 		flw.term = args.Term
 		if args.LastCommitedIndex >= flw.rf.logs.LCI() {
+			flw.log("Grant vote to %d", args.CandidateID)
 			reply.VoteStatus = VOTE_GRANTED
 			flw.tickHeartBeatTimer()
 		} else {

@@ -1,25 +1,579 @@
-[Follower 0/-1] Leaving
-[Follower 0/-1] HeartBeat timeout after 194ms
-[Follower 0/-1] Entered
-[Follower 1/-1] Leaving
-[Follower 1/-1] HeartBeat timeout after 216ms
-[Follower 1/-1] Entered
-[Follower 0/-1] Process ev *raft.HeartBeatTimeoutEvent
-[Follower 0/-1] Put ev *raft.HeartBeatTimeoutEvent
-[Follower 0/-1] HeartBeat Timeout
-[Follower 0/-1] Stopping
-[Follower 0/-1] chLock locked
-Test (3A): initial election ...
-[Follower 2/-1] Leaving
-[Follower 2/-1] HeartBeat timeout after 220ms
-[Follower 2/-1] Entered
-[Follower 1/-1] Put ev *raft.HeartBeatTimeoutEvent
-[Follower 1/-1] Process ev *raft.HeartBeatTimeoutEvent
-[Follower 1/-1] HeartBeat Timeout
-[Follower 1/-1] Stopping
-[Follower 1/-1] chLock locked
-[Follower 2/-1] Put ev *raft.HeartBeatTimeoutEvent
-[Follower 2/-1] Process ev *raft.HeartBeatTimeoutEvent
-[Follower 2/-1] HeartBeat Timeout
-[Follower 2/-1] Stopping
-[Follower 2/-1] chLock locked
+[Follower 0/0] HeartBeat timeout after 196ms
+[Follower 1/0] HeartBeat timeout after 267ms
+[Follower 0/0] HeartBeat Timeout
+[Follower 0/0] Put ev *raft.HeartBeatTimeoutEvent
+[Candidate 0/1] Election timeout after 108ms
+[Candidate 0/1] Request vote from 1
+[Candidate 0/1] Activated
+[Candidate 0/1] Request vote from 2
+Test (3B): test failure of leaders ...
+[Follower 2/0] HeartBeat timeout after 253ms
+[Test] Command index = -1
+[Test] Command index = -1
+[Test] Command index = -1
+[Candidate 0/1] Put ev *raft.ElectionEvent
+[Candidate 0/2] Election timeout after 153ms
+[Candidate 0/2] Request vote from 2
+[Candidate 0/2] Request vote from 1
+[Follower 1/0] RequestVote RPC from [0/2]
+[Follower 2/0] RequestVote RPC from [0/2]
+[Follower 2/2] Grant vote to 0
+[Follower 1/2] Grant vote to 0
+[Follower 2/2] HeartBeat timeout after 231ms
+[Follower 1/2] HeartBeat timeout after 182ms
+[Candidate 0/2] Put ev *raft.VoteGrantEvent
+[Candidate 0/2] Elected
+[Candidate 0/2] Put ev *raft.VoteGrantEvent
+[Candidate 0/2] Stopped
+[Leader 0/2] Abandoned *raft.VoteGrantEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = -1
+[Follower 2/2] HeartBeat timeout after 263ms
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = -1
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = -1
+[Follower 1/2] HeartBeat timeout after 165ms
+[Follower 2/2] HeartBeat timeout after 223ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Received a HeartBeat
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Leader 0/2] 2 confirmed log 0
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = -1
+[Leader 0/2] Put ev *raft.ReplConfirmEvent
+[Follower 1/2] HeartBeat timeout after 298ms
+[Leader 0/2] Update LCI to 0
+[Leader 0/2] Update LCI to 0
+[Leader 0/2] Applied log 0
+[Leader 0/2] Update LAI to 0
+[Leader 0/2] 1 confirmed log 0
+[Leader 0/2] Put ev *raft.ReplConfirmEvent
+[Leader 0/2] Start a command with index = 1, commandIndex = 1
+[Test] Command index = 1
+[Test] Command 1 replicated count = 0
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 0
+[Follower 2/2] Update LCI to 0
+[Follower 2/2] HeartBeat timeout after 280ms
+[Follower 2/2] Received a HeartBeat
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 0
+[Follower 1/2] Update LCI to 0
+[Follower 1/2] HeartBeat timeout after 260ms
+[Follower 2/2] Applied log 0
+[Follower 2/2] Update LAI to 0
+[Follower 1/2] Applied log 0
+[Follower 1/2] Received a HeartBeat
+[Follower 1/2] Update LAI to 0
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 0
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 0
+[Follower 1/2] HeartBeat timeout after 245ms
+[Follower 2/2] HeartBeat timeout after 290ms
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Leader 0/2] 2 confirmed log 1
+[Leader 0/2] Put ev *raft.ReplConfirmEvent
+[Leader 0/2] Update LCI to 1
+[Leader 0/2] Update LCI to 1
+[Leader 0/2] Applied log 1
+[Leader 0/2] Update LAI to 1
+[Leader 0/2] 1 confirmed log 1
+[Leader 0/2] Put ev *raft.ReplConfirmEvent
+[Test] Command 1 replicated count = 1
+[Test] Command 1 replicated count = 1
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] Update LCI to 1
+[Follower 1/2] Update LCI to 1
+[Follower 1/2] HeartBeat timeout after 161ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] Applied log 1
+[Follower 2/2] Update LAI to 1
+[Follower 2/2] HeartBeat timeout after 215ms
+[Follower 2/2] Received a HeartBeat
+[Follower 1/2] Applied log 1
+[Follower 1/2] Update LAI to 1
+[Test] Command 1 replicated count = 3
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] HeartBeat timeout after 162ms
+[Follower 1/2] HeartBeat timeout after 287ms
+[Follower 2/2] Received a HeartBeat
+[Follower 1/2] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] HeartBeat timeout after 185ms
+[Follower 1/2] HeartBeat timeout after 243ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] HeartBeat timeout after 150ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] HeartBeat timeout after 243ms
+[Follower 2/2] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] HeartBeat timeout after 174ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] HeartBeat timeout after 248ms
+[Follower 2/2] Received a HeartBeat
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] HeartBeat timeout after 188ms
+[Follower 2/2] HeartBeat timeout after 178ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] HeartBeat timeout after 259ms
+[Follower 1/2] HeartBeat timeout after 227ms
+[Follower 2/2] Received a HeartBeat
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] HeartBeat timeout after 169ms
+[Follower 2/2] Received a HeartBeat
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] HeartBeat timeout after 182ms
+[Follower 1/2] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] HeartBeat timeout after 220ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] HeartBeat timeout after 265ms
+[Follower 2/2] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] HeartBeat timeout after 269ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] HeartBeat timeout after 242ms
+[Follower 2/2] Received a HeartBeat
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 1/2] Put AppendEntriesEvent to evCh
+[Follower 1/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 1/2] HeartBeat timeout after 178ms
+[Follower 1/2] Received a HeartBeat
+[Follower 2/2] Put AppendEntriesEvent to evCh
+[Follower 2/2] AppendEntries RPC from [0/2], LeaderCommit = 1
+[Follower 2/2] HeartBeat timeout after 234ms
+[Follower 2/2] Received a HeartBeat
+[Test] Command index = -1
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Test] Command index = -1
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Test] Command index = -1
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Test] Command index = -1
+[Follower 1/2] Put ev *raft.HeartBeatTimeoutEvent
+[Follower 1/2] HeartBeat Timeout
+[Candidate 1/3] Election timeout after 186ms
+[Candidate 1/3] Activated
+[Candidate 1/3] Request vote from 0
+[Candidate 1/3] Request vote from 2
+[Follower 2/2] RequestVote RPC from [1/3]
+[Follower 2/3] Grant vote to 1
+[Follower 2/3] HeartBeat timeout after 234ms
+[Candidate 1/3] Put ev *raft.VoteGrantEvent
+[Candidate 1/3] Elected
+[Candidate 1/3] Stopped
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 1
+[Follower 2/3] HeartBeat timeout after 190ms
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 1
+[Follower 2/3] HeartBeat timeout after 273ms
+[Follower 2/3] Received a HeartBeat
+[Leader 1/3] 2 confirmed log 2
+[Leader 1/3] Put ev *raft.ReplConfirmEvent
+[Leader 1/3] Update LCI to 2
+[Leader 1/3] Update LCI to 2
+[Leader 1/3] Applied log 2
+[Leader 1/3] Update LAI to 2
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Start a command with index = 3, commandIndex = 3
+[Test] Command index = 3
+[Test] Command 3 replicated count = 0
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 2
+[Follower 2/3] Update LCI to 2
+[Follower 2/3] HeartBeat timeout after 190ms
+[Follower 2/3] Applied log 2
+[Follower 2/3] Update LAI to 2
+[Leader 1/3] 2 confirmed log 3
+[Leader 1/3] Put ev *raft.ReplConfirmEvent
+[Leader 1/3] Update LCI to 3
+[Leader 1/3] Update LCI to 3
+[Leader 1/3] Applied log 3
+[Leader 1/3] Update LAI to 3
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] Update LCI to 3
+[Follower 2/3] HeartBeat timeout after 207ms
+[Follower 2/3] Received a HeartBeat
+[Follower 2/3] Applied log 3
+[Follower 2/3] Update LAI to 3
+[Test] Command 3 replicated count = 2
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 237ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 181ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 258ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 275ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 171ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 172ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 206ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 230ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 204ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 169ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 266ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 284ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 233ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 215ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 299ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 273ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 183ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 179ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 278ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 233ms
+[Follower 2/3] Received a HeartBeat
+[Leader 1/3] Start a command with index = 4, commandIndex = 4
+[Test] Command index = 4
+[Test] Command 4 replicated count = 0
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 3
+[Follower 2/3] HeartBeat timeout after 263ms
+[Leader 1/3] 2 confirmed log 4
+[Leader 1/3] Put ev *raft.ReplConfirmEvent
+[Leader 1/3] Update LCI to 4
+[Leader 1/3] Update LCI to 4
+[Leader 1/3] Applied log 4
+[Leader 1/3] Update LAI to 4
+[Test] Command 4 replicated count = 1
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] Update LCI to 4
+[Follower 2/3] HeartBeat timeout after 158ms
+[Follower 2/3] Received a HeartBeat
+[Follower 2/3] Applied log 4
+[Follower 2/3] Update LAI to 4
+[Test] Command 4 replicated count = 2
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 225ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 261ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 298ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 172ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 157ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 158ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 278ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 270ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put AppendEntriesEvent to evCh
+[Follower 2/3] AppendEntries RPC from [1/3], LeaderCommit = 4
+[Follower 2/3] HeartBeat timeout after 271ms
+[Follower 2/3] Received a HeartBeat
+[Leader 0/2] Start a command with index = 2, commandIndex = 2
+[Leader 1/3] Start a command with index = 5, commandIndex = 5
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Follower 2/3] Put ev *raft.HeartBeatTimeoutEvent
+[Follower 2/3] HeartBeat Timeout
+[Candidate 2/4] Request vote from 1
+[Candidate 2/4] Election timeout after 188ms
+[Candidate 2/4] Activated
+[Candidate 2/4] Request vote from 0
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/4] Put ev *raft.ElectionEvent
+[Candidate 2/5] Election timeout after 121ms
+[Candidate 2/5] Request vote from 0
+[Candidate 2/5] Request vote from 1
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/5] Put ev *raft.ElectionEvent
+[Candidate 2/6] Election timeout after 184ms
+[Candidate 2/6] Request vote from 0
+[Candidate 2/6] Request vote from 1
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/6] Put ev *raft.ElectionEvent
+[Candidate 2/7] Request vote from 0
+[Candidate 2/7] Request vote from 1
+[Candidate 2/7] Election timeout after 192ms
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/8] Put ev *raft.ElectionEvent
+[Candidate 2/8] Request vote from 0
+[Candidate 2/8] Request vote from 1
+[Candidate 2/8] Election timeout after 175ms
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/8] Put ev *raft.ElectionEvent
+[Candidate 2/9] Election timeout after 192ms
+[Candidate 2/9] Request vote from 1
+[Candidate 2/9] Request vote from 0
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/9] Put ev *raft.ElectionEvent
+[Candidate 2/10] Election timeout after 172ms
+[Candidate 2/10] Request vote from 1
+[Candidate 2/10] Request vote from 0
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/10] Put ev *raft.ElectionEvent
+[Candidate 2/11] Election timeout after 129ms
+[Candidate 2/11] Request vote from 1
+[Candidate 2/11] Request vote from 0
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/12] Election timeout after 153ms
+[Candidate 2/12] Request vote from 1
+[Candidate 2/12] Put ev *raft.ElectionEvent
+[Candidate 2/12] Request vote from 0
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/12] Put ev *raft.ElectionEvent
+[Candidate 2/13] Request vote from 1
+[Candidate 2/13] Election timeout after 194ms
+[Candidate 2/13] Request vote from 0
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+[Leader 0/2] Put ev *raft.SendHeartBeatEvent
+[Candidate 2/13] Put ev *raft.ElectionEvent
+[Candidate 2/14] Election timeout after 160ms
+[Candidate 2/14] Request vote from 1
+[Candidate 2/14] Request vote from 0
+[Leader 1/3] Put ev *raft.SendHeartBeatEvent
+--- FAIL: TestLeaderFailure3B (4.76s)
+    test_test.go:271: 2 committed but no majority
+FAIL
+exit status 1
+FAIL	6.5840/raft	5.003s

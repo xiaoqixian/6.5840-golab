@@ -25,8 +25,6 @@ type ReplEntry struct {
 type ReplCounter struct {
 	rf *Raft
 	entries []*ReplEntry
-	majorN int
-	size int
 }
 
 func newReplicator(peer *labrpc.ClientEnd, id int, ld *Leader) *Replicator {
@@ -101,8 +99,8 @@ func newReplCounter(rf *Raft) *ReplCounter {
 }
 
 func (rc *ReplCounter) watchIndex(idx int) {
-	assert(idx == rc.entries[len(rc.entries)-1].index+1)
-	bitVec := newBitVec(rc.size)
+	assert(len(rc.entries) == 0 || idx == rc.entries[len(rc.entries)-1].index+1)
+	bitVec := newBitVec(len(rc.rf.peers))
 	bitVec.Set(rc.rf.me)
 	rc.entries = append(rc.entries, &ReplEntry {
 		bitVec: bitVec,
@@ -111,21 +109,15 @@ func (rc *ReplCounter) watchIndex(idx int) {
 }
 
 func (rc *ReplCounter) confirm(idx int, peerId int) {
+	if len(rc.entries) == 0 { return } // redundant confirm
 	baseIndex := rc.entries[0].index
 	offset := idx - baseIndex
-	if offset < 0 { return }
+	if offset < 0 { return } // redundant confirm
 	assert(offset < len(rc.entries))
 	rc.entries[offset].bitVec.Set(peerId)
 
 	i, n := 0, len(rc.entries)
-	for ; i < n && rc.entries[i].bitVec.Count() >= rc.rf.majorN; i++ {
-		rc.rf.applyCh <- ApplyMsg {
-			CommandValid: true,
-			CommandIndex: rc.entries[i].index,
-			Command: rc.rf.logs.entries[i].Content,
-		}
-		rc.rf.log("Applied log %d", rc.entries[i].index)
-	}
+	for ; i < n && rc.entries[i].bitVec.Count() >= rc.rf.majorN; i++ {}
 
 	if i > 0 {
 		rc.rf.log("Update LCI to %d", rc.entries[i-1].index)

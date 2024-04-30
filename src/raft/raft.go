@@ -65,7 +65,9 @@ type Role interface {
 	closed() bool
 	activate()
 	process(Event)
-	stop()
+
+	// return false if the role is already stopped.
+	stop() bool
 
 	log(string, ...interface{})
 	fatal(string, ...interface{})
@@ -183,6 +185,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			reply: reply,
 			ch: ch,
 		}
+		rf.log("Put AppendEntriesEvent to evCh")
 		rf.chLock.RUnlock()
 		reply.Responsed = <- ch
 	}
@@ -193,9 +196,7 @@ func (rf *Raft) processor() {
 		ev := <- rf.evCh
 		switch ev.(type) {
 		case *TransEvent:
-			rf.log("Leaving")
 			rf.role.activate()
-			rf.log("Entered")
 
 		default:
 			if !rf.role.closed() {
@@ -209,10 +210,10 @@ func (rf *Raft) processor() {
 }
 
 func (rf *Raft) transRole(f func(Role) Role) {
-	rf.role.stop()
-	rf.role = f(rf.role)
-	rf.evCh <- &TransEvent{}
-	rf.log("Transed")
+	if rf.role.stop() {
+		rf.role = f(rf.role)
+		rf.evCh <- &TransEvent{}
+	}
 }
 
 // example code to send a RequestVote RPC to a server.
@@ -328,14 +329,15 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		peers: peers,
 		persister: persister,
 		me: me,
-		evCh: make(chan Event),
+		evCh: make(chan Event, 1000),
 		majorN: len(peers)/2+1,
+		applyCh: applyCh,
 	}
 	rf.chLock.Lock()
 	rf.logs = newLogs(rf, applyCh)
 	
 	flw := &Follower {
-		term: -1,
+		term: 0,
 		rf: rf,
 	}
 	rf.role = flw
