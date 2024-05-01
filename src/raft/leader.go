@@ -18,10 +18,6 @@ type Leader struct {
 
 	active atomic.Bool
 
-	nextIndex []int
-	
-	hbTimer *RepeatTimer
-
 	rc *ReplCounter
 }
 
@@ -35,26 +31,23 @@ func (ld *Leader) activate() {
 	rf.chLock.Unlock()
 
 	// remove uncommited logs
-	rf.logs.removeUncommittedTail()
+	// rf.logs.removeUncommittedTail()
 	// add a noop log entry.
 	logIndex, _ := rf.logs.leaderAppendEntry(&LogEntry {
-		Type: ENTRY_NOOP,
+		CommandIndex: NOOP_INDEX,
 		Term: ld.term,
 	})
 	ld.rc.watchIndex(logIndex)
 
-	ld.hbTimer = newRepeatTimer(HEARTBEAT_SEND, func() {
-		ld.rf.tryPutEv(&SendHeartBeatEvent{}, ld)
-	})
+	// ld.hbTimer = newRepeatTimer(HEARTBEAT_SEND, func() {
+	// 	ld.rf.tryPutEv(&SendHeartBeatEvent{}, ld)
+	// })
 
 	ld.startReplication()
 }
 
 func (ld *Leader) stop() bool {
 	if ld.active.CompareAndSwap(true, false) {
-		if ld.hbTimer != nil {
-			ld.hbTimer.kill()
-		}
 		ld.rf.chLock.Lock()
 		return true
 	} else {
@@ -72,7 +65,6 @@ func (ld *Leader) process(ev Event) {
 
 	case *StartCommandEvent:
 		logIndex, commandIndex := ld.rf.logs.leaderAppendEntry(&LogEntry {
-			Type: ENTRY_NORMAL,
 			Term: ld.term,
 			Content: ev.command,
 		})
@@ -106,24 +98,18 @@ func (ld *Leader) process(ev Event) {
 }
 
 func (ld *Leader) log(format string, args ...interface{}) {
-	log.Printf("[Leader %d/%d] %s", ld.rf.me, ld.term, fmt.Sprintf(format, args...))
+	log.Printf("[Leader %d/%d/%d/%d] %s", ld.rf.me, ld.term, ld.rf.logs.LLI(), ld.rf.logs.LCI(), fmt.Sprintf(format, args...))
 }
 func (ld *Leader) fatal(format string, args ...interface{}) {
-	log.Fatalf("[Leader %d/%d] %s", ld.rf.me, ld.term, fmt.Sprintf(format, args...))
+	log.Fatalf("[Leader %d/%d/%d/%d] %s", ld.rf.me, ld.term, ld.rf.logs.LLI(), ld.rf.logs.LCI(), fmt.Sprintf(format, args...))
 }
 
 func leaderFromCandidate(r Role) Role {
 	cd := r.(*Candidate)
-	nextIndex := make([]int, len(cd.rf.peers))
-	lci := cd.rf.logs.LCI()
-	for i, _ := range cd.rf.peers {
-		nextIndex[i] = lci
-	}
 
 	return &Leader {
 		term: cd.term,
 		rf: cd.rf,
-		nextIndex: nextIndex,
 		rc: newReplCounter(cd.rf),
 	}
 }
@@ -133,7 +119,6 @@ func (ld *Leader) sendHeartBeat() {
 	args := &AppendEntriesArgs {
 		Id: rf.me,
 		Term: ld.term,
-		LeaderCommit: rf.logs.LCI(),
 	}
 
 	for i, peer := range rf.peers {
@@ -178,7 +163,7 @@ func (ld *Leader) appendEntries(ev *AppendEntriesEvent) {
 func (ld *Leader) requestVote(ev *RequestVoteEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	ld.log("RequestVote RPC from [%d/%d]", args.CandidateID, args.Term)
+	ld.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
 	reply.Term = ld.term
 
 	switch {
@@ -187,7 +172,7 @@ func (ld *Leader) requestVote(ev *RequestVoteEvent) {
 		ld.log("Vote denialed for %d", args.CandidateID)
 		
 	case args.Term > ld.term:
-		if args.LastCommitedIndex >= ld.rf.logs.LCI() {
+		if ld.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			reply.VoteStatus = VOTE_GRANTED
 			ld.log("Vote granted to %d", args.CandidateID)
 		} else {

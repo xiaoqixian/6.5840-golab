@@ -369,6 +369,9 @@ func (rf *Raft) tryPutEv(ev Event, role Role) bool {
 func (rf *Raft) log(format string, args ...interface{}) {
 	rf.role.log(format, args...)
 }
+func (rf *Raft) fatal(format string, args ...interface{}) {
+	rf.role.fatal(format, args...)
+}
 
 func setupLogger() {
 	log.SetFlags(0)

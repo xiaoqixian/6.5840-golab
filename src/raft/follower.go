@@ -77,7 +77,7 @@ func (flw *Follower) process(ev Event) {
 func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	flw.log("AppendEntries RPC from [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.LeaderCommit)
+	flw.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
 	
 	if args.Term < flw.term {
 		reply.EntryStatus = ENTRY_STALE
@@ -86,20 +86,12 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	}
 
 	flw.term = args.Term
-	flw.rf.logs.updateCommit(args.LeaderCommit)
 	flw.tickHeartBeatTimer()
 
-	if args.Entry == nil { 
-		flw.log("Received a HeartBeat")
-		return 
-	}
-	
-	ok := flw.rf.logs.followerAppendEntry(
-		args.Entry,
-		PrevLogInfo { args.PrevLogIndex, args.PrevLogTerm },
-	)
+	ok := flw.rf.logs.followerAppendEntry(args.Entry, args.PrevLogInfo)
 
 	if ok {
+		flw.rf.logs.updateCommit(minInt(args.LeaderCommit, args.PrevLogInfo.Index))
 		reply.EntryStatus = ENTRY_SUCCESS
 	} else {
 		reply.EntryStatus = ENTRY_FAILURE
@@ -115,7 +107,7 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	flw.log("RequestVote RPC from [%d/%d]", args.CandidateID, args.Term)
+	flw.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
 
 	reply.VoterID = flw.rf.me
 	switch {
@@ -128,7 +120,7 @@ func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 
 	case args.Term > flw.term:
 		flw.term = args.Term
-		if args.LastCommitedIndex >= flw.rf.logs.LCI() {
+		if flw.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			flw.log("Grant vote to %d", args.CandidateID)
 			reply.VoteStatus = VOTE_GRANTED
 			flw.tickHeartBeatTimer()
@@ -148,11 +140,15 @@ func (flw *Follower) tickHeartBeatTimer() {
 	}
 }
 
+func (flw *Follower) _log(f func(string, ...interface{}), format string, args ...interface{}) {
+	f("[Follower %d/%d/%d/%d] %s", flw.rf.me, flw.term, flw.rf.logs.LLI(), flw.rf.logs.LCI(), fmt.Sprintf(format, args...))
+}
+
 func (flw *Follower) log(format string, args ...interface{}) {
-	log.Printf("[Follower %d/%d] %s", flw.rf.me, flw.term, fmt.Sprintf(format, args...))
+	flw._log(log.Printf, format, args...)
 }
 func (flw *Follower) fatal(format string, args ...interface{}) {
-	log.Fatalf("[Follower %d/%d] %s", flw.rf.me, flw.term, fmt.Sprintf(format, args...))
+	flw._log(log.Fatalf, format, args...)
 }
 
 func followerFromCandidate(r Role) Role {

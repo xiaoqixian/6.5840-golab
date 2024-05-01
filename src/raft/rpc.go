@@ -8,12 +8,9 @@ type AppendEntriesArgs struct {
 	Id int
 	Term int
 
-	PrevLogIndex int
-	PrevLogTerm int
-
-	LeaderCommit int
-
+	PrevLogInfo LogInfo
 	Entry *LogEntry
+	LeaderCommit int
 }
 
 type AppendEntriesReply struct {
@@ -31,7 +28,7 @@ type RequestVoteArgs struct {
 	// Your data here (3A, 3B).
 	Term int
 	CandidateID int
-	LastCommitedIndex int
+	LastLogInfo LogInfo
 }
 
 type NoopEntry struct {}

@@ -90,13 +90,15 @@ func (cd *Candidate) process(ev Event) {
 
 }
 
+func (cd *Candidate) _log(f func(string, ...interface{}), format string, args ...interface{}) {
+	f("[Candidate %d/%d/%d/%d] %s", cd.rf.me, cd.term, cd.rf.logs.LLI(), cd.rf.logs.LCI(), fmt.Sprintf(format, args...))
+}
+
 func (cd *Candidate) log(format string, args ...interface{}) {
-	log.Printf("[Candidate %d/%d] %s\n", cd.rf.me, cd.term, 
-		fmt.Sprintf(format, args...))
+	cd._log(log.Printf, format, args...)
 }
 func (cd *Candidate) fatal(format string, args ...interface{}) {
-	log.Fatalf("[Candidate %d/%d] %s\n", cd.rf.me, cd.term, 
-		fmt.Sprintf(format, args...))
+	cd._log(log.Fatalf, format, args...)
 }
 
 func (cd *Candidate) setElecTimer() {
@@ -119,7 +121,7 @@ func (cd *Candidate) startElection() {
 	args := &RequestVoteArgs {
 		Term: cd.term,
 		CandidateID: rf.me,
-		LastCommitedIndex: rf.logs.LCI(),
+		LastLogInfo: rf.logs.lastLogInfo(),
 	}
 	for i, peer := range rf.peers {
 		if i == rf.me { continue }
@@ -133,6 +135,7 @@ func (cd *Candidate) startElection() {
 			for tries := RPC_CALL_TRY_TIMES;
 				!ok && tries > 0;
 				tries-- {
+				time.Sleep(RPC_FAIL_WAITING)
 				ok = peer.Call("Raft.RequestVote", args, reply)
 			}
 			
@@ -190,7 +193,7 @@ func (cd *Candidate) appendEntries(ev *AppendEntriesEvent) {
 func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	cd.log("RequestVote RPC from [%d/%d]", args.CandidateID, args.Term)
+	cd.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
 
 	switch {
 	case args.Term <= cd.term:
@@ -198,7 +201,7 @@ func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 		reply.Term = cd.term
 
 	case args.Term > cd.term:
-		if args.LastCommitedIndex >= cd.rf.logs.LCI() {
+		if cd.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			reply.VoteStatus = VOTE_GRANTED
 		} else {
 			reply.VoteStatus = VOTE_OTHER

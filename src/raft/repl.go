@@ -10,6 +10,13 @@ import (
 	"6.5840/labrpc"
 )
 
+type EntrySendType uint8
+const (
+	ENTRY_SEND_NOT_READY EntrySendType = iota
+	ENTRY_SEND_HB
+	ENTRY_SEND_NORMAL
+)
+
 type Replicator struct {
 	peerId int
 	peer *labrpc.ClientEnd
@@ -39,30 +46,54 @@ func newReplicator(peer *labrpc.ClientEnd, id int, ld *Leader) *Replicator {
 func (repl *Replicator) start() {
 	ld := repl.ld
 	logs := ld.rf.logs
+
+	hbTicker := time.NewTicker(HEARTBEAT_SEND)
+	defer hbTicker.Stop()
 	
-	for ld.active.Load() {
+	replication: for ld.active.Load() {
 		assert(repl.nextIndex >= 0)
 
-		if repl.nextIndex > logs.LLI() {
+		sendType := ENTRY_SEND_NOT_READY
+
+		select {
+		case <- hbTicker.C:
+			sendType = ENTRY_SEND_HB
+		default:
+		}
+		if repl.nextIndex <= logs.LLI() {
+			sendType = ENTRY_SEND_NORMAL
+		}
+
+		if sendType == ENTRY_SEND_NOT_READY {
 			time.Sleep(NEW_LOG_CHECK_FREQ)
-			continue
+			continue replication
+		}
+
+		var sendEntry *LogEntry
+		if sendType == ENTRY_SEND_NORMAL {
+			sendEntry = logs.indexLogEntry(repl.nextIndex)
 		}
 
 		round: for ld.active.Load() {
-			prevIndex := repl.nextIndex - 1
 			args := &AppendEntriesArgs {
 				Id: ld.rf.me,
 				Term: ld.term,
-				PrevLogTerm: logs.indexLogTerm(prevIndex),
-				PrevLogIndex: prevIndex,
+				PrevLogInfo: LogInfo {
+					Index: repl.nextIndex-1,
+					Term: logs.indexLogTerm(repl.nextIndex-1),
+				},
+				Entry: sendEntry,
 				LeaderCommit: logs.LCI(),
-				Entry: logs.indexLogEntry(repl.nextIndex),
 			}
 			reply := &AppendEntriesReply {}
 
 			for ok := repl.peer.Call("Raft.AppendEntries", args, reply);
-			!ok || !reply.Responsed; 
-			ok = repl.peer.Call("Raft.AppendEntries", args, reply) {}
+			(!ok || !reply.Responsed) && ld.active.Load(); 
+			ok = repl.peer.Call("Raft.AppendEntries", args, reply) {
+				time.Sleep(RPC_FAIL_WAITING)
+			}
+
+			if !ld.active.Load() { break replication }
 
 			switch reply.EntryStatus {
 			case ENTRY_DEFAULT:
@@ -83,9 +114,12 @@ func (repl *Replicator) start() {
 				continue round
 
 			case ENTRY_SUCCESS:
-				ld.log("%d confirmed log %d", repl.peerId, repl.nextIndex)
-				ld.rf.tryPutEv(&ReplConfirmEvent { repl.peerId, repl.nextIndex }, ld)
-				repl.nextIndex++
+				if sendEntry != nil {
+					ld.log("%d confirmed log %d", repl.peerId, repl.nextIndex)
+					ld.rf.tryPutEv(&ReplConfirmEvent { 
+						repl.peerId, repl.nextIndex }, ld)
+					repl.nextIndex++
+				}
 				break round
 			}
 		}
@@ -101,7 +135,7 @@ func newReplCounter(rf *Raft) *ReplCounter {
 func (rc *ReplCounter) watchIndex(idx int) {
 	assert(len(rc.entries) == 0 || idx == rc.entries[len(rc.entries)-1].index+1)
 	bitVec := newBitVec(len(rc.rf.peers))
-	bitVec.Set(rc.rf.me)
+	bitVec.Set(rc.rf.me) // confirm for myself.
 	rc.entries = append(rc.entries, &ReplEntry {
 		bitVec: bitVec,
 		index: idx,

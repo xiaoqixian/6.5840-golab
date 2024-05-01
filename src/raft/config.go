@@ -651,5 +651,5 @@ func (cfg *config) LogSize() int {
 }
 
 func tlog(format string, args ...interface{}) {
-	log.Printf("[Test] %s\n", fmt.Sprintf(format, args...))
+	log.Printf("\n[Test] %s\n\n", fmt.Sprintf(format, args...))
 }
