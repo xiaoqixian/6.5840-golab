@@ -19,14 +19,19 @@ package raft
 
 import (
 	//	"bytes"
+	// "bytes"
+	"bytes"
 	"encoding/gob"
+	"io"
 	"log"
 	"math/rand"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	//	"6.5840/labgob"
+	// "6.5840/labgob"
 	"6.5840/labrpc"
 )
 
@@ -81,6 +86,9 @@ type Raft struct {
 	dead      atomic.Bool
 	majorN    int
 
+	term int
+	voteFor int
+
 	role Role
 
 	logs *Logs
@@ -93,6 +101,28 @@ type Raft struct {
 	// the chLock is write locked until the role is activated, 
 	// and relocked when the role is stopped again.
 	chLock sync.RWMutex
+
+	saveLock sync.Mutex
+}
+
+func (rf *Raft) Term() int {
+	return rf.term
+}
+
+func (rf *Raft) setTerm(term int) {
+	// make sure the term increase monotonically.
+	if term <= rf.term {
+		_, file, line, ok := runtime.Caller(1)
+		if ok {
+			rf.fatal("[%s/%d] term %d <= rf.term %d", file, line, term, rf.term)
+		} else {
+			rf.fatal("term <= rf.term")
+		}
+	}
+	rf.term = term
+	// erase voteFor information everytime the term is modified.
+	rf.voteFor = -1
+	rf.save()
 }
 
 // return currentTerm and whether this server
@@ -129,6 +159,9 @@ func (rf *Raft) persist() {
 	// e.Encode(rf.yyy)
 	// raftstate := w.Bytes()
 	// rf.persister.Save(raftstate, nil)
+	
+	// buf := new(bytes.Buffer)
+	// enc := labgob.NewEncoder(buf)
 }
 
 
@@ -163,6 +196,8 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 }
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
+	rf.log("RequestVote RPC from [%d/%d], last log info = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
+
 	if !rf.dead.Load() {
 		ch := make(chan bool, 1)
 		rf.chLock.RLock()
@@ -171,12 +206,15 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			reply: reply,
 			ch: ch,
 		}
+		rf.log("RequestVote RPC from [%d/%d] received in channel", args.CandidateID, args.Term)
 		rf.chLock.RUnlock()
 		reply.Responsed = <- ch
 	}
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	rf.log("AppendEntries RPC from [%d/%d]", args.Id, args.Term)
+
 	if !rf.dead.Load() {
 		ch := make(chan bool, 1)
 		rf.chLock.RLock()
@@ -185,7 +223,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			reply: reply,
 			ch: ch,
 		}
-		rf.log("Put AppendEntriesEvent to evCh")
+		rf.log("AppendEntries from [%d/%d] received in channel", args.Id, args.Term)
 		rf.chLock.RUnlock()
 		reply.Responsed = <- ch
 	}
@@ -285,6 +323,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // confusing debug output. any goroutine with a long-running loop
 // should call killed() to check whether it should stop.
 func (rf *Raft) Kill() {
+	rf.role.stop()
 	rf.dead.Store(true)
 	// Your code here, if desired.
 }
@@ -332,12 +371,33 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		evCh: make(chan Event, 1000),
 		majorN: len(peers)/2+1,
 		applyCh: applyCh,
+		term: 0,
+		voteFor: -1,
 	}
+
+	// read persistent data
+	var logs *Logs
+	var state PersistentState
+	var err error
+	reader := bytes.NewReader(persister.ReadRaftState())
+	dec := gob.NewDecoder(reader)
+	err = dec.Decode(&state)
+	if err != nil {
+		if err == io.EOF {
+			logs = newLogs(rf, nil)
+		} else {
+			log.Fatal(err.Error())
+		}
+	} else {
+		logs = newLogs(rf, &state.Logs)
+		rf.term = state.Term
+	}
+
+	logs.rf = rf
+	rf.logs = logs
 	rf.chLock.Lock()
-	rf.logs = newLogs(rf, applyCh)
 	
 	flw := &Follower {
-		term: 0,
 		rf: rf,
 	}
 	rf.role = flw

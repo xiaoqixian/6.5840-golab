@@ -69,9 +69,7 @@ type HeartBeatTimeoutEvent struct {}
 
 // == CANDIDATE EVNET ==
 
-// Received this ev, the candidate starts a 
-// new election.
-type ElectionEvent struct {}
+type ElectionTimeoutEvent struct {}
 
 type VoteGrantEvent struct {
 	term int

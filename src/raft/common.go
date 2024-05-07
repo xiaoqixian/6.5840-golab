@@ -14,16 +14,16 @@ import (
 
 const (
 	HEARTBEAT_SEND = time.Duration(50 * time.Millisecond)
-	RPC_FAIL_WAITING = time.Duration(20 * time.Millisecond)
+	RPC_FAIL_WAITING = time.Duration(100 * time.Millisecond)
 	RPC_CALL_TRY_TIMES = 5
 	NEW_LOG_CHECK_FREQ = time.Duration(20 * time.Millisecond)
 	CANDIDATE_CHECK_FREQ = time.Duration(10 * time.Millisecond)
-	APPEND_WAITING = time.Duration(10 * time.Millisecond)
+	HOLD_WAITING = time.Duration(10 * time.Millisecond)
 )
 var (
-	HEARTBEAT_TIMEOUT = []int{ 150, 300 }
+	HEARTBEAT_TIMEOUT = []int{ 300, 400 }
 	POLL_TIMEOUT_DURATION = []int{ 150, 300 }
-	ELECTION_TIMEOUT = []int{ 100, 200 }
+	ELECTION_TIMEOUT = []int{ 900, 1100 }
 	// heartbeat timeout should be longer thant normal heartbeat timeout.
 	LEADER_INIT_HEARTBEAT_TIMEOUT = []int{ 500, 800 }
 )
@@ -105,4 +105,22 @@ func maxInt(x int, y int) int {
 
 func typeName(a interface{}) string {
 	return reflect.TypeOf(a).String()
+}
+
+func rpcMultiTry(f func() bool) (ok bool) {
+	ticker := time.NewTicker(RPC_FAIL_WAITING)
+	ch := make(chan bool, 1)
+
+	loop: for {
+		go func() {
+			ch <- f()
+		}()
+
+		select {
+		case ok = <- ch:
+			break loop
+		case <- ticker.C:
+		}
+	}
+	return
 }

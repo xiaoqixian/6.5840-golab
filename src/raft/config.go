@@ -137,6 +137,8 @@ func (cfg *config) crash1(i int) {
 	}
 }
 
+// check if the prev log exists, and if all the committed logs at the 
+// commandIndex are the same.
 func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	err_msg := ""
 	v := m.Command
@@ -233,7 +235,7 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 				var prevok bool
 				err_msg, prevok = cfg.checkLogs(i, m)
 				cfg.mu.Unlock()
-				if m.CommandIndex > 1 && prevok == false {
+				if m.CommandIndex > 1 && !prevok {
 					err_msg = fmt.Sprintf("server %v apply out of order %v", i, m.CommandIndex)
 				}
 			}
@@ -299,7 +301,7 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 		cfg.saved[i] = cfg.saved[i].Copy()
 
 		snapshot := cfg.saved[i].ReadSnapshot()
-		if snapshot != nil && len(snapshot) > 0 {
+		if len(snapshot) > 0 {
 			// mimic KV server and process snapshot now.
 			// ideally Raft should send it up on applyCh...
 			err := cfg.ingestSnap(i, snapshot, -1)
@@ -553,11 +555,13 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 3B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
+	log.Printf("\n==============================\n\nStart command %d, expectedServers = %d, retry = %t", cmd.(int), expectedServers, retry)
+
 	t0 := time.Now()
-	starts := 0
+	starts, cmd_index := 0, -1
 	for time.Since(t0).Seconds() < 10 && !cfg.checkFinished() {
 		// try all the servers, maybe one is the leader.
-		index := -1
+		index, s_index := -1, -1
 		for si := 0; si < cfg.n; si++ {
 			starts = (starts + 1) % cfg.n
 			var rf *Raft
@@ -570,26 +574,25 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 				index1, _, ok := rf.Start(cmd)
 				if ok {
 					index = index1
+					s_index = starts
 					break
 				}
 			}
 		}
 
-		tlog("Command index = %d", index)
+		tlog("Command %d started at index = %d by leader %d", cmd, index, s_index)
 
 		if index != -1 {
+			cmd_index = index
 			// somebody claimed to be the leader and to have
 			// submitted our command; wait a while for agreement.
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := cfg.nCommitted(index)
-				tlog("Command %d replicated count = %d", index, nd)
-				if nd > 0 && nd >= expectedServers {
-					// committed
-					if cmd1 == cmd {
-						// and it was the command we submitted.
-						return index
-					}
+				tlog("Command %d replicated count = %d, cmd1 = %d, cmd = %d", index, nd, cmd1, cmd)
+				if nd >= expectedServers && cmd1 == cmd {
+					tlog("Command %d with index %d agreed", cmd.(int), cmd_index)
+					return index
 				}
 				time.Sleep(20 * time.Millisecond)
 			}
@@ -601,8 +604,9 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 		}
 	}
 	if !cfg.checkFinished() {
-		cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
+		cfg.t.Fatalf("one(%v) failed to reach agreement after 10 secs", cmd)
 	}
+	tlog("Command %d with index %d failed to commit", cmd.(int), cmd_index)
 	return -1
 }
 
@@ -624,7 +628,7 @@ func (cfg *config) begin(description string) {
 // and some performance numbers.
 func (cfg *config) end() {
 	cfg.checkTimeout()
-	if cfg.t.Failed() == false {
+	if !cfg.t.Failed() {
 		cfg.mu.Lock()
 		t := time.Since(cfg.t0).Seconds()       // real time
 		npeers := cfg.n                         // number of Raft peers
@@ -651,5 +655,5 @@ func (cfg *config) LogSize() int {
 }
 
 func tlog(format string, args ...interface{}) {
-	log.Printf("\n[Test] %s\n\n", fmt.Sprintf(format, args...))
+	log.Printf("[Test] %s\n", fmt.Sprintf(format, args...))
 }

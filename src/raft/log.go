@@ -29,23 +29,26 @@ type Logs struct {
 	entries []*LogEntry
 	lci atomic.Int32
 	lli atomic.Int32
-	lai int
+	lai atomic.Int32
 	noopCount int
 	rf *Raft
-	applier *Applier
 }
 
-func newLogs(rf *Raft, applyCh chan ApplyMsg) *Logs {
+func newLogs(rf *Raft, persistLogs *PersistentLogs) *Logs {
 	logs := &Logs {
 		rf: rf,
-		applier: &Applier {
-			count: 0,
-			applyCh: applyCh,
-		},
-		lai: -1,
 	}
-	logs.lci.Store(-1)
-	logs.lli.Store(-1)
+	if persistLogs == nil {
+		logs.lci.Store(-1)
+		logs.lli.Store(-1)
+		logs.lai.Store(-1)
+	} else {
+		logs.lli.Store(persistLogs.Lli)
+		logs.lci.Store(persistLogs.Lci)
+		logs.lai.Store(persistLogs.Lai)
+		logs.entries = persistLogs.Entries
+		logs.noopCount = persistLogs.NoopCount
+	}
 	return logs
 }
 
@@ -58,9 +61,10 @@ func (logs *Logs) updateCommit(leaderCommit int) {
 	if newCommit > logs.LCI() {
 		logs.lci.Store(int32(newCommit))
 		logs.rf.log("Update LCI to %d", newCommit)
+		logs.rf.save()
 	
 		go func(lci int) {
-			lai := logs.lai
+			lai := logs.LAI()
 			assert(lai <= lci)
 			for _, et := range logs.entries[lai+1:lci+1] {
 				switch et.CommandIndex {
@@ -72,12 +76,11 @@ func (logs *Logs) updateCommit(leaderCommit int) {
 						CommandIndex: et.CommandIndex,
 						Command: et.Content,
 					}
-					logs.rf.log("Applied log %d", et.CommandIndex)
+					logs.rf.log("Applied log %d, content = %d", et.CommandIndex, et.Content.(int))
 				}
 			}
 
-			logs.lai = lci
-			logs.rf.log("Update LAI to %d", lci)
+			logs.lai.Store(int32(lci))
 		}(logs.LCI())
 	}
 }
@@ -117,7 +120,7 @@ func (logs *Logs) followerAppendEntry(et *LogEntry, prev LogInfo) bool {
 	// this is an old leader, it already committed this log entry, 
 	// but it crashed before it told everyone.
 	if prev.Index < int(logs.lci.Load()) {
-		logs.rf.log("I'm an old leader, received an entry index %d < LCI %d", prev.Index, logs.LCI())
+		logs.rf.log("Received an entry index %d < LCI %d", prev.Index, logs.LCI())
 		return true
 	}
 
@@ -143,6 +146,8 @@ func (logs *Logs) followerAppendEntry(et *LogEntry, prev LogInfo) bool {
 				logs.removeAfter(prev.Index)
 				logs.pushEntry(et)
 			}
+
+			logs.rf.save()
 		}
 	}
 
@@ -155,6 +160,7 @@ func (logs *Logs) leaderAppendEntry(et *LogEntry) (int, int) {
 	assert(et != nil)
 
 	commandIndex := logs.pushEntry(et)
+	logs.rf.save()
 	lli := logs.LLI()
 	return lli, commandIndex
 }
@@ -169,16 +175,16 @@ func (logs *Logs) removeAfter(idx int) {
 	logs.lli.Store(int32(len(logs.entries)-1))
 }
 
-func (logs *Logs) removeUncommittedTail() {
-	logs.removeAfter(logs.LCI())
-}
-
 func (logs *Logs) LCI() int {
 	return int(logs.lci.Load())
 }
 
 func (logs *Logs) LLI() int {
 	return int(logs.lli.Load())
+}
+
+func (logs *Logs) LAI() int {
+	return int(logs.lai.Load())
 }
 
 // compare if the log is as up-to-date the logs' last log.

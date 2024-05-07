@@ -39,7 +39,7 @@ func newReplicator(peer *labrpc.ClientEnd, id int, ld *Leader) *Replicator {
 		peerId: id,
 		peer: peer,
 		ld: ld,
-		nextIndex: ld.rf.logs.LCI() + 1,
+		nextIndex: ld.rf.logs.LLI() + 1,
 	}
 }
 
@@ -74,10 +74,17 @@ func (repl *Replicator) start() {
 			sendEntry = logs.indexLogEntry(repl.nextIndex)
 		}
 
+		switch sendType {
+		case ENTRY_SEND_HB:
+			ld.log("Send a HeartBeat to %d", repl.peerId)
+		case ENTRY_SEND_NORMAL:
+			ld.log("Send an Entry to %d", repl.peerId)
+		}
+
 		round: for ld.active.Load() {
 			args := &AppendEntriesArgs {
 				Id: ld.rf.me,
-				Term: ld.term,
+				Term: ld.rf.term,
 				PrevLogInfo: LogInfo {
 					Index: repl.nextIndex-1,
 					Term: logs.indexLogTerm(repl.nextIndex-1),
@@ -87,10 +94,16 @@ func (repl *Replicator) start() {
 			}
 			reply := &AppendEntriesReply {}
 
-			for ok := repl.peer.Call("Raft.AppendEntries", args, reply);
+			rpcCall := func() bool {
+				return repl.peer.Call("Raft.AppendEntries", args, reply)
+			}
+
+			for ok := rpcMultiTry(rpcCall);
 			(!ok || !reply.Responsed) && ld.active.Load(); 
-			ok = repl.peer.Call("Raft.AppendEntries", args, reply) {
+			ok = rpcMultiTry(rpcCall) {
 				time.Sleep(RPC_FAIL_WAITING)
+				args.LeaderCommit = logs.LCI()
+				ld.log("AppendEntries Call to peer %d try again", repl.peerId)
 			}
 
 			if !ld.active.Load() { break replication }
@@ -100,7 +113,7 @@ func (repl *Replicator) start() {
 				ld.fatal("AppendEntries RPC EntryStatus is default from %d", repl.peerId)
 				
 			case ENTRY_STALE:
-				ld.log("%d said i'm stale", repl.peerId)
+				ld.log("%d said i'm stale, my term = %d, reply term = %d", repl.peerId, ld.rf.term, reply.Term)
 				ld.rf.tryPutEv(&StaleLeaderEvent { reply.Term }, ld)
 				return
 
@@ -110,7 +123,7 @@ func (repl *Replicator) start() {
 				break round
 
 			case ENTRY_HOLD:
-				time.Sleep(APPEND_WAITING)
+				time.Sleep(HOLD_WAITING)
 				continue round
 
 			case ENTRY_SUCCESS:
@@ -156,6 +169,6 @@ func (rc *ReplCounter) confirm(idx int, peerId int) {
 	if i > 0 {
 		rc.rf.log("Update LCI to %d", rc.entries[i-1].index)
 		rc.rf.logs.updateCommit(rc.entries[i-1].index)
+		rc.entries = rc.entries[i:]
 	}
-	rc.entries = rc.entries[i:]
 }

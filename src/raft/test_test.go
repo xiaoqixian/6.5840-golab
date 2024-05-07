@@ -761,36 +761,49 @@ func TestPersist23C(t *testing.T) {
 
 	index := 1
 	for iters := 0; iters < 5; iters++ {
-		cfg.one(10+index, servers, true)
+		tlog("Round %d", iters)
+
+		cfg.one(10*(iters+1)+index, servers, true)
 		index++
 
 		leader1 := cfg.checkOneLeader()
+		tlog("leader1 = %d", leader1)
 
 		cfg.disconnect((leader1 + 1) % servers)
 		cfg.disconnect((leader1 + 2) % servers)
+		tlog("disconnected %d", (leader1 + 1) % servers)
+		tlog("disconnected %d", (leader1 + 2) % servers)
 
-		cfg.one(10+index, servers-2, true)
+		cfg.one(10*(iters+1)+index, servers-2, true)
 		index++
 
 		cfg.disconnect((leader1 + 0) % servers)
 		cfg.disconnect((leader1 + 3) % servers)
 		cfg.disconnect((leader1 + 4) % servers)
+		tlog("disconnected leader %d", (leader1 + 0) % servers)
+		tlog("disconnected %d", (leader1 + 3) % servers)
+		tlog("disconnected %d", (leader1 + 4) % servers)
 
 		cfg.start1((leader1+1)%servers, cfg.applier)
 		cfg.start1((leader1+2)%servers, cfg.applier)
 		cfg.connect((leader1 + 1) % servers)
 		cfg.connect((leader1 + 2) % servers)
+		tlog("restart and connected %d", (leader1 + 1) % servers)
+		tlog("restart and connected %d", (leader1 + 2) % servers)
 
 		time.Sleep(RaftElectionTimeout)
 
 		cfg.start1((leader1+3)%servers, cfg.applier)
 		cfg.connect((leader1 + 3) % servers)
+		tlog("restart and connected %d, it should be elected", (leader1 + 3) % servers)
 
-		cfg.one(10+index, servers-2, true)
+		cfg.one(10*(iters+1)+index, servers-2, true)
 		index++
 
 		cfg.connect((leader1 + 4) % servers)
 		cfg.connect((leader1 + 0) % servers)
+		tlog("connected %d", (leader1 + 4) % servers)
+		tlog("connected %d", (leader1 + 0) % servers)
 	}
 
 	cfg.one(1000, servers, true)
@@ -932,28 +945,44 @@ func TestFigure8Unreliable3C(t *testing.T) {
 
 	nup := servers
 	for iters := 0; iters < 1000; iters++ {
+		log.Printf("\n=====================================\n\n")
+		tlog("Round %d", iters)
+		var alives []int
+		for s := 0; s < servers; s++ {
+			if cfg.connected[s] {
+				alives = append(alives, s)
+			}
+		}
+		log.Println("Alive nodes: ", alives)
+
 		if iters == 200 {
 			cfg.setlongreordering(true)
+			tlog("setlongreordering")
 		}
 		leader := -1
 		for i := 0; i < servers; i++ {
-			_, _, ok := cfg.rafts[i].Start(rand.Int() % 10000)
+			cmd := rand.Int() % 10000
+			cmdIndex, cmdTerm, ok := cfg.rafts[i].Start(cmd)
 			if ok && cfg.connected[i] {
 				leader = i
+				tlog("Start command %d on leader %d with [%d/%d]", cmd, i, cmdIndex, cmdTerm)
 			}
 		}
 
 		if (rand.Int() % 1000) < 100 {
 			ms := rand.Int63() % (int64(RaftElectionTimeout/time.Millisecond) / 2)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
+			tlog("Sleep for %s", time.Duration(ms) * time.Millisecond)
 		} else {
 			ms := (rand.Int63() % 13)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
+			tlog("Sleep for %s", time.Duration(ms) * time.Millisecond)
 		}
 
 		if leader != -1 && (rand.Int()%1000) < int(RaftElectionTimeout/time.Millisecond)/2 {
 			cfg.disconnect(leader)
 			nup -= 1
+			tlog("Disconnect leader %d", leader)
 		}
 
 		if nup < 3 {
@@ -961,6 +990,7 @@ func TestFigure8Unreliable3C(t *testing.T) {
 			if cfg.connected[s] == false {
 				cfg.connect(s)
 				nup += 1
+				tlog("Pull up a random node %d", s)
 			}
 		}
 	}
@@ -968,6 +998,7 @@ func TestFigure8Unreliable3C(t *testing.T) {
 	for i := 0; i < servers; i++ {
 		if cfg.connected[i] == false {
 			cfg.connect(i)
+			tlog("Connected %d", i)
 		}
 	}
 

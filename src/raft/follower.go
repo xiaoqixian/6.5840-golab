@@ -12,7 +12,6 @@ import (
 )
 
 type Follower struct {
-	term int
 	rf *Raft
 
 	active atomic.Bool
@@ -26,7 +25,7 @@ func (flw *Follower) closed() bool { return !flw.active.Load() }
 
 func (flw *Follower) activate() { 
 	if flw.active.CompareAndSwap(false, true) {
-		flw.active.Store(true)
+		flw.log("Activated")
 		flw.rf.chLock.Unlock()
 		flw.tickHeartBeatTimer()
 	}
@@ -48,7 +47,7 @@ func (flw *Follower) process(ev Event) {
 	switch ev := ev.(type) {
 	case *GetStateEvent:
 		ev.ch <- &NodeState {
-			term: flw.term,
+			term: flw.rf.term,
 			isLeader: false,
 		}
 
@@ -77,15 +76,22 @@ func (flw *Follower) process(ev Event) {
 func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	flw.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
+
+	// if args.Entry != nil {
+	// 	flw.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
+	// } else {
+	// 	flw.log("HeartBeat from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
+	// }
 	
-	if args.Term < flw.term {
+	if args.Term < flw.rf.term {
 		reply.EntryStatus = ENTRY_STALE
-		reply.Term = flw.term
+		reply.Term = flw.rf.term
 		return
 	}
 
-	flw.term = args.Term
+	if args.Term > flw.rf.term {
+		flw.rf.setTerm(args.Term)
+	}
 	flw.tickHeartBeatTimer()
 
 	ok := flw.rf.logs.followerAppendEntry(args.Entry, args.PrevLogInfo)
@@ -107,21 +113,26 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	flw.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
 
 	reply.VoterID = flw.rf.me
 	switch {
-	case args.Term < flw.term:
-		reply.Term = flw.term
-		reply.VoteStatus = VOTE_DENIAL
-
-	case args.Term == flw.term:
+	case args.Term < flw.rf.term:
+		reply.Term = flw.rf.term
 		reply.VoteStatus = VOTE_OTHER
 
-	case args.Term > flw.term:
-		flw.term = args.Term
+	case args.Term == flw.rf.term:
+		if args.CandidateID == flw.rf.voteFor {
+			reply.VoteStatus = VOTE_GRANTED
+			flw.log("Receive a duplicate vote request, vote granted")
+		} else {
+			reply.VoteStatus = VOTE_OTHER
+		}
+
+	case args.Term > flw.rf.term:
+		flw.rf.setTerm(args.Term)
 		if flw.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			flw.log("Grant vote to %d", args.CandidateID)
+			flw.rf.voteFor = args.CandidateID
 			reply.VoteStatus = VOTE_GRANTED
 			flw.tickHeartBeatTimer()
 		} else {
@@ -141,7 +152,7 @@ func (flw *Follower) tickHeartBeatTimer() {
 }
 
 func (flw *Follower) _log(f func(string, ...interface{}), format string, args ...interface{}) {
-	f("[Follower %d/%d/%d/%d] %s", flw.rf.me, flw.term, flw.rf.logs.LLI(), flw.rf.logs.LCI(), fmt.Sprintf(format, args...))
+	f("[Follower %d/%d/%d/%d] %s", flw.rf.me, flw.rf.term, flw.rf.logs.LLI(), flw.rf.logs.LCI(), fmt.Sprintf(format, args...))
 }
 
 func (flw *Follower) log(format string, args ...interface{}) {
@@ -154,7 +165,6 @@ func (flw *Follower) fatal(format string, args ...interface{}) {
 func followerFromCandidate(r Role) Role {
 	cd := r.(*Candidate)
 	return &Follower {
-		term: cd.term,
 		rf: cd.rf,
 	}
 }
@@ -162,7 +172,6 @@ func followerFromCandidate(r Role) Role {
 func followerFromLeader(r Role) Role {
 	ld := r.(*Leader)
 	return &Follower {
-		term: ld.term,
 		rf: ld.rf,
 	}
 }

@@ -22,7 +22,6 @@ const (
 )
 
 type Candidate struct {
-	term int
 	rf *Raft
 	votes int
 	voters []bool
@@ -38,8 +37,8 @@ func (cd *Candidate) closed() bool { return !cd.active.Load() }
 
 func (cd *Candidate) activate() { 
 	if cd.active.CompareAndSwap(false, true) {
-		cd.rf.chLock.Unlock()
 		cd.startElection()
+		cd.rf.chLock.Unlock()
 		cd.log("Activated")
 	}
 }
@@ -61,7 +60,7 @@ func (cd *Candidate) process(ev Event) {
 	switch ev := ev.(type) {
 	case *GetStateEvent:
 		ev.ch <- &NodeState {
-			term: cd.term,
+			term: cd.rf.Term(),
 			isLeader: false,
 		}
 
@@ -77,11 +76,11 @@ func (cd *Candidate) process(ev Event) {
 	case *VoteGrantEvent:
 		cd.auditVote(ev)
 
-	case *ElectionEvent:
-		cd.startElection()
+	case *ElectionTimeoutEvent:
+		cd.rf.transRole(followerFromCandidate)
 
 	case *StaleCandidateEvent:
-		cd.term = ev.newTerm
+		cd.rf.setTerm(ev.newTerm)
 		cd.rf.transRole(followerFromCandidate)
 
 	default:
@@ -91,7 +90,7 @@ func (cd *Candidate) process(ev Event) {
 }
 
 func (cd *Candidate) _log(f func(string, ...interface{}), format string, args ...interface{}) {
-	f("[Candidate %d/%d/%d/%d] %s", cd.rf.me, cd.term, cd.rf.logs.LLI(), cd.rf.logs.LCI(), fmt.Sprintf(format, args...))
+	f("[Candidate %d/%d/%d/%d] %s", cd.rf.me, cd.rf.term, cd.rf.logs.LLI(), cd.rf.logs.LCI(), fmt.Sprintf(format, args...))
 }
 
 func (cd *Candidate) log(format string, args ...interface{}) {
@@ -107,19 +106,19 @@ func (cd *Candidate) setElecTimer() {
 	rf := cd.rf
 	if cd.elecTimer == nil || cd.elecTimer.Reset(d) {
 		cd.elecTimer = time.AfterFunc(d, func() {
-			rf.tryPutEv(&ElectionEvent{}, cd)
+			rf.tryPutEv(&ElectionTimeoutEvent{}, cd)
 		})
 	}
 }
 
 func (cd *Candidate) startElection() {
 	rf := cd.rf
-	cd.term++
+	cd.rf.setTerm(cd.rf.term+1)
 	cd.votes = 1
 	cd.voters = make([]bool, len(rf.peers))
 
 	args := &RequestVoteArgs {
-		Term: cd.term,
+		Term: cd.rf.term,
 		CandidateID: rf.me,
 		LastLogInfo: rf.logs.lastLogInfo(),
 	}
@@ -133,13 +132,15 @@ func (cd *Candidate) startElection() {
 			ok := peer.Call("Raft.RequestVote", args, reply)
 
 			for tries := RPC_CALL_TRY_TIMES;
-				!ok && tries > 0;
+				cd.active.Load() && (!ok || !reply.Responsed) && tries > 0;
 				tries-- {
 				time.Sleep(RPC_FAIL_WAITING)
 				ok = peer.Call("Raft.RequestVote", args, reply)
 			}
+
+			if !cd.active.Load() { return }
 			
-			if ok {
+			if ok && reply.Responsed {
 				switch reply.VoteStatus {
 				case VOTE_GRANTED:
 					rf.tryPutEv(&VoteGrantEvent {
@@ -148,19 +149,19 @@ func (cd *Candidate) startElection() {
 					}, cd)
 
 				case VOTE_OTHER:
-					if reply.Term > cd.term {
+					if reply.Term > cd.rf.term {
 						rf.tryPutEv(&StaleCandidateEvent{reply.Term}, cd)
 					}
 					
 				case VOTE_DENIAL:
-					rf.tryPutEv(&StaleCandidateEvent{cd.term}, cd)
+					rf.tryPutEv(&StaleCandidateEvent{cd.rf.term}, cd)
 
 				case VOTE_DEFAULT:
 					cd.fatal("Unprocessed vote request from %d", reply.VoterID)
 				}
 
 			}
-		}(peer, i, cd.term, cd.rf)
+		}(peer, i, cd.rf.term, cd.rf)
 	}
 
 	cd.setElecTimer()
@@ -169,7 +170,6 @@ func (cd *Candidate) startElection() {
 func candidateFromFollower(r Role) Role {
 	flw := r.(*Follower)
 	return &Candidate {
-		term: flw.term,
 		rf: flw.rf,
 	}
 }
@@ -177,43 +177,56 @@ func candidateFromFollower(r Role) Role {
 func (cd *Candidate) appendEntries(ev *AppendEntriesEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	cd.log("AppendEntries RPC from [%d/%d]", args.Id, args.Term)
 	
 	switch {
-	case args.Term >= cd.term:
-		cd.term = args.Term
-		cd.rf.transRole(followerFromCandidate)
+	case args.Term >= cd.rf.term:
 		reply.EntryStatus = ENTRY_HOLD
+		if args.Term > cd.rf.term {
+			cd.rf.setTerm(args.Term)
+		}
+		cd.rf.transRole(followerFromCandidate)
 
-	case args.Term < cd.term:
+	case args.Term < cd.rf.term:
 		reply.EntryStatus = ENTRY_STALE
+		reply.Term = cd.rf.term
 	}
 }
 
 func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	cd.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
 
 	switch {
-	case args.Term <= cd.term:
+	case args.Term < cd.rf.term:
 		reply.VoteStatus = VOTE_OTHER // which is myself.
-		reply.Term = cd.term
+		reply.Term = cd.rf.term
 
-	case args.Term > cd.term:
-		if cd.rf.logs.atLeastUpToDate(args.LastLogInfo) {
+	case args.Term == cd.rf.term:
+		assert(cd.rf.voteFor == -1)
+		reply.Term = args.Term
+		if args.CandidateID == cd.rf.voteFor {
 			reply.VoteStatus = VOTE_GRANTED
 		} else {
 			reply.VoteStatus = VOTE_OTHER
 		}
 
-		cd.term = args.Term
+	case args.Term > cd.rf.term:
+		cd.log("Fallback to follower")
+		cd.rf.setTerm(args.Term)
 		cd.rf.transRole(followerFromCandidate)
+
+		if cd.rf.logs.atLeastUpToDate(args.LastLogInfo) {
+			reply.VoteStatus = VOTE_GRANTED
+			cd.rf.voteFor = args.CandidateID
+			cd.log("Grant Vote to %d", args.CandidateID)
+		} else {
+			reply.VoteStatus = VOTE_OTHER
+		}
 	}
 }
 
 func (cd *Candidate) auditVote(ev *VoteGrantEvent) {
-	if cd.term == ev.term && !cd.voters[ev.voter] {
+	if cd.rf.term == ev.term && !cd.voters[ev.voter] {
 		cd.voters[ev.voter] = true
 		cd.votes++
 
