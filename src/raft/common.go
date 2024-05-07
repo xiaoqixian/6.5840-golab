@@ -28,32 +28,10 @@ var (
 	LEADER_INIT_HEARTBEAT_TIMEOUT = []int{ 500, 800 }
 )
 
-type RpcReq interface {
-	reqType()
-}
-
-type AppendEntriesReq struct {
-	args *AppendEntriesArgs
-	reply *AppendEntriesReply
-	finishCh chan bool
-}
-
-type RequestVoteReq struct {
-	args *RequestVoteArgs
-	reply *RequestVoteReply
-	finishCh chan bool
-}
-
 type EntryStatus uint8 
 const (
 	// not used, to avoid EntryStatus not set.
 	ENTRY_DEFAULT EntryStatus = iota
-
-	// Entry is successfully received by the follower.
-	ENTRY_SUCCESS
-
-	// Entry does not match follower log entries.
-	ENTRY_FAILURE
 
 	// Entry is received by a candidate or a leader, 
 	// wait a small amount of time and resend request 
@@ -64,10 +42,18 @@ const (
 	// greater term, the leader that received this should 
 	// retire immediately.
 	ENTRY_STALE
+
+	ENTRY_MATCH
+
+	ENTRY_UNMATCH
 )
 
-func (*AppendEntriesReq) reqType() {}
-func (*RequestVoteReq) reqType() {}
+type EntryType uint8
+const (
+	ENTRY_T_DEFAULT EntryType = iota
+	ENTRY_T_QUERY
+	ENTRY_T_LOG
+)
 
 func genRandomDuration(t ...int) time.Duration {
 	switch len(t) {

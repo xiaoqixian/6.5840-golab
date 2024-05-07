@@ -26,7 +26,7 @@ type Applier struct {
 }
 
 type Logs struct {
-	entries []*LogEntry
+	entries []LogEntry
 	lci atomic.Int32
 	lli atomic.Int32
 	lai atomic.Int32
@@ -76,7 +76,7 @@ func (logs *Logs) updateCommit(leaderCommit int) {
 						CommandIndex: et.CommandIndex,
 						Command: et.Content,
 					}
-					logs.rf.log("Applied log %d, content = %d", et.CommandIndex, et.Content.(int))
+					logs.rf.log("Applied log %d", et.CommandIndex)
 				}
 			}
 
@@ -97,68 +97,68 @@ func (logs *Logs) indexLogEntry(idx int) *LogEntry {
 	if idx < 0 || idx > logs.LLI() {
 		return nil
 	} else {
-		return logs.entries[idx]
+		return &logs.entries[idx]
 	}
 }
 
-func (logs *Logs) pushEntry(et *LogEntry) int {
-	logs.entries = append(logs.entries, et)
-	logs.lli.Store(int32(len(logs.entries)-1))
-
+func (logs *Logs) pushEntry(et LogEntry) int {
 	switch et.CommandIndex {
 	case NOOP_INDEX:
 		logs.noopCount++
 
 	default:
-		et.CommandIndex = logs.LLI() - logs.noopCount + 1
+		et.CommandIndex = logs.LLI() - logs.noopCount + 2
 	}
+
+	logs.entries = append(logs.entries, et)
+	logs.lli.Store(int32(len(logs.entries)-1))
 
 	return et.CommandIndex
 }
 
-func (logs *Logs) followerAppendEntry(et *LogEntry, prev LogInfo) bool {
-	// this is an old leader, it already committed this log entry, 
-	// but it crashed before it told everyone.
-	if prev.Index < int(logs.lci.Load()) {
+func (logs *Logs) pushEntries(ets []LogEntry) {
+	for _, et := range ets {
+		switch et.CommandIndex {
+		case NOOP_INDEX:
+			logs.noopCount++
+		}
+	}
+
+	logs.entries = append(logs.entries, ets...)
+	logs.lli.Store(int32(len(logs.entries)-1))
+}
+
+func (logs *Logs) followerAppendEntries(ets []LogEntry, prev LogInfo) EntryStatus {
+	if prev.Index < logs.LCI() {
+		// assert(logs.entries[prev.Index+1].Term == ets[0].Term)
 		logs.rf.log("Received an entry index %d < LCI %d", prev.Index, logs.LCI())
-		return true
+		return ENTRY_MATCH
 	}
 
 	lli := logs.LLI()
-	prevMatch := false
 	switch {
 	case prev.Index < -1:
 		logs.rf.fatal("Illegal prev index = %d", prev.Index)
 	// prev out of bounds
 	case prev.Index > lli:
-		prevMatch = false
+		return ENTRY_UNMATCH
 
-	// prev matches
 	case prev.Index < 0 || logs.indexLogTerm(prev.Index) == prev.Term:
-		prevMatch = true
-
-		if et != nil {
-			switch {
-			case prev.Index == lli:
-				logs.pushEntry(et)
-
-			case logs.indexLogTerm(prev.Index+1) != et.Term:
+		if len(ets) > 0 {
+			if prev.Index < lli {
 				logs.removeAfter(prev.Index)
-				logs.pushEntry(et)
 			}
-
+			logs.pushEntries(ets)
 			logs.rf.save()
 		}
+		return ENTRY_MATCH
 	}
-
-	return prevMatch
+	return ENTRY_UNMATCH
 }
 
 // Leader appends an entry, return the last log index, 
 // and the last user command log index.
-func (logs *Logs) leaderAppendEntry(et *LogEntry) (int, int) {
-	assert(et != nil)
-
+func (logs *Logs) leaderAppendEntry(et LogEntry) (int, int) {
 	commandIndex := logs.pushEntry(et)
 	logs.rf.save()
 	lli := logs.LLI()

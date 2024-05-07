@@ -13,7 +13,7 @@ import (
 type RolePersist interface {}
 
 type PersistentLogs struct {
-	Entries []*LogEntry
+	Entries []LogEntry
 	Lci int32
 	Lli int32
 	Lai int32

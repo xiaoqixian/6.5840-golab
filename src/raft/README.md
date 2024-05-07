@@ -195,3 +195,24 @@ type AppendEntriesArgs struct {
 - `ENTRY_MATCH`: prev log 匹配, 但是 curr log 不匹配, 说明找到了匹配点, 则 follower 将原 prev log 之后的所有 logs 全部删除, 然后替换为 curr log; leader 收到之后将 curr log 作为 prev log, 将 curr log 之后的所有 logs 作为 curr log 发送给 follower, 从而实现了双方的快速同步.
 - `ENTRY_FAILURE`: prev log 无法匹配, leader 收到后需要在 prev log 之前的 logs 里面寻求匹配.
 
+总结一下 leader 新上任后对某个节点开始 replication 的流程, 需要注意的是 follower 不会记录当前 leader 的id, 只会基于 term 来决定要不要接受 `AppendEntries` RPC.
+
+​	首先修改 `AppendEntriesArgs` 允许一次添加多个 logs
+
+```go
+type AppendEntriesArgs struct {
+	Id int
+	Term int
+
+	PrevLogInfo LogInfo
+	LeaderCommit int
+	Entries []LogEntry
+}
+```
+
+对于每个 peer, leader 会发起一条 replicator goroutine 用于复制 logs. 
+
+1. replicator goroutine 启动后, 开始二分搜索同步过程. 
+2. 定义 `prevLogIndex := -1`, 表示初始状态下 peer 没有与 leader 同步的 log. 接着在 `[0, LLI]` 的区间寻找更新 `prevLogIndex`.
+3. 最后令 replicator 的 `nextIndex = prevIndex + 1`.
+

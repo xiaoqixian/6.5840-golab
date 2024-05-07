@@ -90,5 +90,6 @@ type StaleLeaderEvent struct {
 
 type ReplConfirmEvent struct {
 	id int
-	index int
+	startIndex int
+	endIndex int // not included
 }

@@ -80,7 +80,9 @@ func (cd *Candidate) process(ev Event) {
 		cd.rf.transRole(followerFromCandidate)
 
 	case *StaleCandidateEvent:
-		cd.rf.setTerm(ev.newTerm)
+		if ev.newTerm > cd.rf.term {
+			cd.rf.setTerm(ev.newTerm)
+		}
 		cd.rf.transRole(followerFromCandidate)
 
 	default:

@@ -33,7 +33,7 @@ func (ld *Leader) activate() {
 	// remove uncommited logs
 	// rf.logs.removeUncommittedTail()
 	// add a noop log entry.
-	logIndex, _ := rf.logs.leaderAppendEntry(&LogEntry {
+	logIndex, _ := rf.logs.leaderAppendEntry(LogEntry {
 		CommandIndex: NOOP_INDEX,
 		Term: ld.rf.term,
 	})
@@ -68,7 +68,7 @@ func (ld *Leader) process(ev Event) {
 		}
 
 	case *StartCommandEvent:
-		logIndex, commandIndex := ld.rf.logs.leaderAppendEntry(&LogEntry {
+		logIndex, commandIndex := ld.rf.logs.leaderAppendEntry(LogEntry {
 			Term: ld.rf.term,
 			Content: ev.command,
 		})
@@ -77,7 +77,7 @@ func (ld *Leader) process(ev Event) {
 			term: ld.rf.term,
 			index: commandIndex,
 		}
-		ld.log("Start command %d with index = %d, commandIndex = %d", ev.command.(int), logIndex, commandIndex)
+		ld.log("Start command with index = %d, commandIndex = %d", logIndex, commandIndex)
 		ld.rc.watchIndex(logIndex)
 
 	case *AppendEntriesEvent:
@@ -87,7 +87,7 @@ func (ld *Leader) process(ev Event) {
 		ld.requestVote(ev)
 
 	case *ReplConfirmEvent:
-		ld.rc.confirm(ev.index, ev.id)
+		ld.rc.confirm(ev.id, ev.startIndex, ev.endIndex)
 
 	case *StaleLeaderEvent:
 		ld.rf.setTerm(ev.newTerm)

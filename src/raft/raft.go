@@ -213,7 +213,13 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	rf.log("AppendEntries RPC from [%d/%d]", args.Id, args.Term)
+	{
+		var indices []int
+		if len(args.Entries) > 0 {
+			indices = []int{args.PrevLogInfo.Index+1, args.PrevLogInfo.Index+len(args.Entries)}
+		}
+		rf.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], Entries = %v", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, indices)
+	}
 
 	if !rf.dead.Load() {
 		ch := make(chan bool, 1)

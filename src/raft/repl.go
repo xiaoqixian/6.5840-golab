@@ -39,13 +39,82 @@ func newReplicator(peer *labrpc.ClientEnd, id int, ld *Leader) *Replicator {
 		peerId: id,
 		peer: peer,
 		ld: ld,
-		nextIndex: ld.rf.logs.LLI() + 1,
+		nextIndex: 0,
+	}
+}
+
+func (repl *Replicator) call(args *AppendEntriesArgs) *AppendEntriesReply {
+	reply := &AppendEntriesReply {}
+	f := func() bool {
+		return repl.peer.Call("Raft.AppendEntries", args, reply)
+	}
+	for ok := rpcMultiTry(f); 
+	(!ok || !reply.Responsed) && repl.ld.active.Load();
+	ok = rpcMultiTry(f) {
+		time.Sleep(RPC_FAIL_WAITING)
+	}
+	return reply
+}
+
+func (repl *Replicator) matchIndex() {
+	ld := repl.ld
+	logs := ld.rf.logs
+	l, r := 0, logs.LLI()
+	prevLogIndex := -1
+
+	for ld.active.Load() && l <= r {
+		m := l + (r-l)/2
+		ld.log("[repl %d] m = %d", repl.peerId, m)
+		
+		args := &AppendEntriesArgs {
+			Id: ld.rf.me,
+			Term: ld.rf.term,
+			PrevLogInfo: LogInfo {m, logs.indexLogTerm(m)},
+			LeaderCommit: logs.LCI(),
+			Entries: nil,
+			EntryType: ENTRY_T_QUERY,
+		}
+		round: for ld.active.Load() {
+			reply := repl.call(args)
+			if !repl.ld.active.Load() { return }
+
+			switch reply.EntryStatus {
+			case ENTRY_MATCH:
+				prevLogIndex = m
+				l = m + 1
+				ld.log("[repl %d] m = %d matched", repl.peerId, m)
+				break round
+
+			case ENTRY_UNMATCH:
+				ld.log("[repl %d] m = %d not matched", repl.peerId, m)
+				r = m - 1
+				break round
+
+			case ENTRY_STALE:
+				ld.rf.transRole(followerFromLeader)
+				return
+				
+			case ENTRY_HOLD:
+				
+			default:
+				ld.fatal("Unprocessed EntryStatus: %d", reply.EntryStatus)
+			}
+		}
+
+	}
+	if ld.active.Load() {
+		repl.nextIndex = prevLogIndex + 1
+		ld.log("Peer %d match index = %d", repl.peerId, repl.nextIndex)
 	}
 }
 
 func (repl *Replicator) start() {
+	repl.matchIndex()
+
 	ld := repl.ld
 	logs := ld.rf.logs
+
+	if !ld.active.Load() { return }
 
 	hbTicker := time.NewTicker(HEARTBEAT_SEND)
 	defer hbTicker.Stop()
@@ -53,33 +122,9 @@ func (repl *Replicator) start() {
 	replication: for ld.active.Load() {
 		assert(repl.nextIndex >= 0)
 
-		sendType := ENTRY_SEND_NOT_READY
-
-		select {
-		case <- hbTicker.C:
-			sendType = ENTRY_SEND_HB
-		default:
-		}
-		if repl.nextIndex <= logs.LLI() {
-			sendType = ENTRY_SEND_NORMAL
-		}
-
-		if sendType == ENTRY_SEND_NOT_READY {
-			time.Sleep(NEW_LOG_CHECK_FREQ)
-			continue replication
-		}
-
-		var sendEntry *LogEntry
-		if sendType == ENTRY_SEND_NORMAL {
-			sendEntry = logs.indexLogEntry(repl.nextIndex)
-		}
-
-		switch sendType {
-		case ENTRY_SEND_HB:
-			ld.log("Send a HeartBeat to %d", repl.peerId)
-		case ENTRY_SEND_NORMAL:
-			ld.log("Send an Entry to %d", repl.peerId)
-		}
+		<- hbTicker.C
+		
+		sendEntries := logs.entries[repl.nextIndex:]
 
 		round: for ld.active.Load() {
 			args := &AppendEntriesArgs {
@@ -89,8 +134,9 @@ func (repl *Replicator) start() {
 					Index: repl.nextIndex-1,
 					Term: logs.indexLogTerm(repl.nextIndex-1),
 				},
-				Entry: sendEntry,
+				Entries: sendEntries,
 				LeaderCommit: logs.LCI(),
+				EntryType: ENTRY_T_LOG,
 			}
 			reply := &AppendEntriesReply {}
 
@@ -117,21 +163,25 @@ func (repl *Replicator) start() {
 				ld.rf.tryPutEv(&StaleLeaderEvent { reply.Term }, ld)
 				return
 
-			case ENTRY_FAILURE:
-				repl.nextIndex--
-				ld.log("%d nextIndex fallback to %d", repl.peerId, repl.nextIndex)
-				break round
+			case ENTRY_UNMATCH:
+				ld.log("Peer %d lost match, rematch", repl.peerId)
+				repl.matchIndex()
+				continue replication
 
 			case ENTRY_HOLD:
 				time.Sleep(HOLD_WAITING)
 				continue round
 
-			case ENTRY_SUCCESS:
-				if sendEntry != nil {
+			case ENTRY_MATCH:
+				if len(sendEntries) > 0 {
 					ld.log("%d confirmed log %d", repl.peerId, repl.nextIndex)
-					ld.rf.tryPutEv(&ReplConfirmEvent { 
-						repl.peerId, repl.nextIndex }, ld)
-					repl.nextIndex++
+					ld.rf.tryPutEv(&ReplConfirmEvent {
+						id: repl.peerId,
+						startIndex: repl.nextIndex,
+						endIndex: repl.nextIndex + len(sendEntries),
+					}, ld)
+							
+					repl.nextIndex += len(sendEntries)
 				}
 				break round
 			}
@@ -155,13 +205,19 @@ func (rc *ReplCounter) watchIndex(idx int) {
 	})
 }
 
-func (rc *ReplCounter) confirm(idx int, peerId int) {
+func (rc *ReplCounter) confirm(peerId int, startIdx int, endIdx int) {
+	rc.rf.log("Peer %d confirmed log [%d, %d)", peerId, startIdx, endIdx)
+
 	if len(rc.entries) == 0 { return } // redundant confirm
+
 	baseIndex := rc.entries[0].index
-	offset := idx - baseIndex
-	if offset < 0 { return } // redundant confirm
-	assert(offset < len(rc.entries))
-	rc.entries[offset].bitVec.Set(peerId)
+	endOffset := endIdx - baseIndex
+	assert(endOffset <= len(rc.entries))
+
+	for offset := maxInt(startIdx - baseIndex, 0); 
+		offset < endOffset; offset++ {
+		rc.entries[offset].bitVec.Set(peerId)
+	}
 
 	i, n := 0, len(rc.entries)
 	for ; i < n && rc.entries[i].bitVec.Count() >= rc.rf.majorN; i++ {}

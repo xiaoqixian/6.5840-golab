@@ -94,13 +94,11 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	}
 	flw.tickHeartBeatTimer()
 
-	ok := flw.rf.logs.followerAppendEntry(args.Entry, args.PrevLogInfo)
-
-	if ok {
-		flw.rf.logs.updateCommit(minInt(args.LeaderCommit, args.PrevLogInfo.Index))
-		reply.EntryStatus = ENTRY_SUCCESS
-	} else {
-		reply.EntryStatus = ENTRY_FAILURE
+	reply.EntryStatus = flw.rf.logs.followerAppendEntries(
+		args.Entries, args.PrevLogInfo)
+	
+	if reply.EntryStatus == ENTRY_MATCH && args.EntryType == ENTRY_T_LOG {
+		flw.rf.logs.updateCommit(args.LeaderCommit)
 	}
 }
 

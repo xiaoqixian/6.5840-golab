@@ -9,8 +9,10 @@ type AppendEntriesArgs struct {
 	Term int
 
 	PrevLogInfo LogInfo
-	Entry *LogEntry
 	LeaderCommit int
+	Entries []LogEntry
+
+	EntryType EntryType
 }
 
 type AppendEntriesReply struct {

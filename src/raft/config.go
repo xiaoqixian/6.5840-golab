@@ -555,7 +555,13 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 3B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
-	log.Printf("\n==============================\n\nStart command %d, expectedServers = %d, retry = %t", cmd.(int), expectedServers, retry)
+	switch cmd := cmd.(type) {
+	case int:
+		log.Printf("\n==============================\n\nStart command %d, expectedServers = %d, retry = %t", cmd, expectedServers, retry)
+
+	case string:
+		log.Printf("\n==============================\n\nStart command %s, expectedServers = %d, retry = %t", cmd[:10], expectedServers, retry)
+	}
 
 	t0 := time.Now()
 	starts, cmd_index := 0, -1
@@ -591,7 +597,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 				nd, cmd1 := cfg.nCommitted(index)
 				tlog("Command %d replicated count = %d, cmd1 = %d, cmd = %d", index, nd, cmd1, cmd)
 				if nd >= expectedServers && cmd1 == cmd {
-					tlog("Command %d with index %d agreed", cmd.(int), cmd_index)
+					tlog("Command with index %d agreed", cmd_index)
 					return index
 				}
 				time.Sleep(20 * time.Millisecond)
@@ -606,7 +612,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 	if !cfg.checkFinished() {
 		cfg.t.Fatalf("one(%v) failed to reach agreement after 10 secs", cmd)
 	}
-	tlog("Command %d with index %d failed to commit", cmd.(int), cmd_index)
+	tlog("Command with index %d failed to commit", cmd_index)
 	return -1
 }
 
