@@ -78,6 +78,14 @@ type Role interface {
 	fatal(string, ...interface{})
 }
 
+type Snapshot struct {
+	Snapshot []byte
+	LastIncludeIndex int
+	LastIncludeTerm int
+	LastIncludeCmdIndex int
+	NoopCount int
+}
+
 // A Go object implementing a single Raft peer.
 type Raft struct {
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
@@ -122,7 +130,7 @@ func (rf *Raft) setTerm(term int) {
 	rf.term = term
 	// erase voteFor information everytime the term is modified.
 	rf.voteFor = -1
-	rf.save()
+	rf.persistState()
 }
 
 // return currentTerm and whether this server
@@ -141,27 +149,6 @@ func (rf *Raft) GetState() (int, bool) {
 		return state.term, state.isLeader
 	}
 	return -1, false
-}
-
-// save Raft's persistent state to stable storage,
-// where it can later be retrieved after a crash and restart.
-// see paper's Figure 2 for a description of what should be persistent.
-// before you've implemented snapshots, you should pass nil as the
-// second argument to persister.Save().
-// after you've implemented snapshots, pass the current snapshot
-// (or nil if there's not yet a snapshot).
-func (rf *Raft) persist() {
-	// Your code here (3C).
-	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// raftstate := w.Bytes()
-	// rf.persister.Save(raftstate, nil)
-	
-	// buf := new(bytes.Buffer)
-	// enc := labgob.NewEncoder(buf)
 }
 
 
@@ -191,8 +178,17 @@ func (rf *Raft) readPersist(data []byte) {
 // service no longer needs the log through (and including)
 // that index. Raft should now trim its log as much as possible.
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
-	// Your code here (3D).
-
+	rf.log("Take snapshot at command index %d", index)
+	ch := make(chan bool, 1)
+	for ok := false; !ok && !rf.dead.Load(); ok = <- ch {
+		rf.chLock.RLock()
+		rf.evCh <- &SnapshotEvent {
+			index: index,
+			snapshot: snapshot,
+			ch: ch,
+		}
+		rf.chLock.RUnlock()
+	}
 }
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
@@ -213,12 +209,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	{
+	if args.Snapshot != nil {
+		rf.log("InstallSnapshot RPC from [%d/%d], LastInclude = [%d/%d]", args.Id, args.Term, args.Snapshot.LastIncludeIndex, args.Snapshot.LastIncludeTerm)
+	} else {
 		var indices []int
-		if len(args.Entries) > 0 {
-			indices = []int{args.PrevLogInfo.Index+1, args.PrevLogInfo.Index+len(args.Entries)}
+		if args.SendEntries != nil && len(args.SendEntries.Entries) > 0 {
+			indices = []int{args.SendEntries.PrevLogInfo.Index+1, args.SendEntries.PrevLogInfo.Index+len(args.SendEntries.Entries)}
 		}
-		rf.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], Entries = %v", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, indices)
+		rf.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], Entries = %v", args.Id, args.Term, args.SendEntries.PrevLogInfo.Index, args.SendEntries.PrevLogInfo.Term, indices)
 	}
 
 	if !rf.dead.Load() {
@@ -238,9 +236,17 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 func (rf *Raft) processor() {
 	for !rf.dead.Load() {
 		ev := <- rf.evCh
-		switch ev.(type) {
+		switch ev := ev.(type) {
 		case *TransEvent:
 			rf.role.activate()
+
+		case *SnapshotEvent:
+			if rf.role.closed() {
+				ev.ch <- false
+			} else {
+				rf.logs.takeSnapshot(ev.index, ev.snapshot)
+				ev.ch <- true
+			}
 
 		default:
 			if !rf.role.closed() {
@@ -363,11 +369,6 @@ func (rf *Raft) ticker() {
 // for any long-running work.
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
-	if !registerd {
-		gob.Register(NoopEntry{})
-		registerd = true
-	}
-	
 	setupLogger()
 
 	rf := &Raft {
@@ -381,22 +382,40 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		voteFor: -1,
 	}
 
-	// read persistent data
+	// read snapshot
+	snapshot := func() *Snapshot {
+		var snapshot Snapshot
+		reader := bytes.NewReader(persister.ReadSnapshot())
+		dec := gob.NewDecoder(reader)
+		switch err := dec.Decode(&snapshot); err {
+		case nil:
+			return &snapshot
+
+		case io.EOF:
+			return nil
+
+		default:
+			log.Fatalf("Read snapshot persist failed: %s", err.Error())
+		}
+		return nil
+	}()
+
+	// read persistent data and init logs
 	var logs *Logs
 	var state PersistentState
-	var err error
 	reader := bytes.NewReader(persister.ReadRaftState())
 	dec := gob.NewDecoder(reader)
-	err = dec.Decode(&state)
-	if err != nil {
-		if err == io.EOF {
-			logs = newLogs(rf, nil)
-		} else {
-			log.Fatal(err.Error())
-		}
-	} else {
-		logs = newLogs(rf, &state.Logs)
+
+	switch err := dec.Decode(&state); err {
+	case nil:
+		logs = newLogs(rf, &state.Logs, snapshot)
 		rf.term = state.Term
+
+	case io.EOF:
+		logs = newLogs(rf, nil, snapshot)
+
+	default:
+		log.Fatal(err.Error())
 	}
 
 	logs.rf = rf
@@ -407,8 +426,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		rf: rf,
 	}
 	rf.role = flw
-
-	// Your initialization code here (3A, 3B, 3C).
 
 	go rf.processor()
 	time.Sleep(100 * time.Millisecond)

@@ -191,13 +191,17 @@ func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
 	d := labgob.NewDecoder(r)
 	var lastIncludedIndex int
 	var xlog []interface{}
-	if d.Decode(&lastIncludedIndex) != nil ||
-		d.Decode(&xlog) != nil {
-		log.Fatalf("snapshot decode error")
+	if err := d.Decode(&lastIncludedIndex); err != nil {
+		log.Fatalf("snapshot decode error: %s", err.Error())
 		return "snapshot Decode() error"
 	}
+	if err := d.Decode(&xlog); err != nil {
+		log.Fatalf("snapshot decode error: %s", err.Error())
+		return "snapshot Decode() error"
+	}
+
 	if index != -1 && index != lastIncludedIndex {
-		err := fmt.Sprintf("server %v snapshot doesn't match m.SnapshotIndex", i)
+		err := fmt.Sprintf("server %v snapshot lastIncludedIndex %d doesn't match m.SnapshotIndex %d", i, index, lastIncludedIndex)
 		return err
 	}
 	cfg.logs[i] = map[int]interface{}{}
@@ -661,5 +665,5 @@ func (cfg *config) LogSize() int {
 }
 
 func tlog(format string, args ...interface{}) {
-	log.Printf("[Test] %s\n", fmt.Sprintf(format, args...))
+	log.Printf("%s\n", fmt.Sprintf(format, args...))
 }

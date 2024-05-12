@@ -1172,21 +1172,26 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 
 	cfg.one(rand.Int(), servers, true)
 	leader1 := cfg.checkOneLeader()
+	tlog("leader1 = %d", leader1)
 
 	for i := 0; i < iters; i++ {
+		tlog("\n=============================\n\niter = %d\n", i)
 		victim := (leader1 + 1) % servers
 		sender := leader1
 		if i%3 == 1 {
 			sender = (leader1 + 1) % servers
 			victim = leader1
 		}
+		tlog("victim = %d, sender = %d\n", victim, sender)
 
 		if disconnect {
 			cfg.disconnect(victim)
+			tlog("victim %d disconnected", victim)
 			cfg.one(rand.Int(), servers-1, true)
 		}
 		if crash {
 			cfg.crash1(victim)
+			tlog("victim %d crashed", victim)
 			cfg.one(rand.Int(), servers-1, true)
 		}
 
@@ -1197,7 +1202,7 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 		}
 
 		// let applier threads catch up with the Start()'s
-		if disconnect == false && crash == false {
+		if !disconnect && !crash {
 			// make sure all followers have caught up, so that
 			// an InstallSnapshot RPC isn't required for
 			// TestSnapshotBasic3D().
@@ -1213,12 +1218,14 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 			// reconnect a follower, who maybe behind and
 			// needs to rceive a snapshot to catch up.
 			cfg.connect(victim)
+			tlog("victim %d connected", victim)
 			cfg.one(rand.Int(), servers, true)
 			leader1 = cfg.checkOneLeader()
 		}
 		if crash {
 			cfg.start1(victim, cfg.applierSnap)
 			cfg.connect(victim)
+			tlog("victim %d started and connected", victim)
 			cfg.one(rand.Int(), servers, true)
 			leader1 = cfg.checkOneLeader()
 		}

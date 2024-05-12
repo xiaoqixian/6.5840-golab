@@ -22,6 +22,9 @@ func abandonEv(ev Event) {
 
 	case *GetStateEvent:
 		ev.ch <- nil
+
+	case *SnapshotEvent:
+		ev.ch <- false
 	}
 }
 
@@ -61,6 +64,16 @@ type NodeState struct {
 }
 type GetStateEvent struct {
 	ch chan *NodeState
+}
+
+type SnapshotEvent struct {
+	index int
+	snapshot []byte
+	ch chan bool
+}
+
+type InstallSnapshotEvent struct {
+	snapshot *Snapshot
 }
 
 // == FOLLOWER EVENT ==

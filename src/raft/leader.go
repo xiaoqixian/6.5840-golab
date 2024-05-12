@@ -98,11 +98,18 @@ func (ld *Leader) process(ev Event) {
 	}
 }
 
+func (ld *Leader) _log(f func(string, ...interface{}), format string, args ...interface{}) {
+	f("[Leader %d/%d/%d/%d/%d] %s", 
+	ld.rf.me, ld.rf.term, ld.rf.logs.LLI(), 
+	ld.rf.logs.LCI(), len(ld.rf.logs.entries), 
+	fmt.Sprintf(format, args...))
+}
+
 func (ld *Leader) log(format string, args ...interface{}) {
-	log.Printf("[Leader %d/%d/%d/%d] %s", ld.rf.me, ld.rf.term, ld.rf.logs.LLI(), ld.rf.logs.LCI(), fmt.Sprintf(format, args...))
+	ld._log(log.Printf, format, args...)
 }
 func (ld *Leader) fatal(format string, args ...interface{}) {
-	log.Fatalf("[Leader %d/%d/%d/%d] %s", ld.rf.me, ld.rf.term, ld.rf.logs.LLI(), ld.rf.logs.LCI(), fmt.Sprintf(format, args...))
+	ld._log(log.Fatalf, format, args...)
 }
 
 func leaderFromCandidate(r Role) Role {

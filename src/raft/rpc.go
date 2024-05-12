@@ -4,15 +4,22 @@
 
 package raft
 
+type SendEntries struct {
+	Entries []LogEntry
+	PrevLogInfo LogInfo
+}
+
 type AppendEntriesArgs struct {
 	Id int
 	Term int
 
-	PrevLogInfo LogInfo
 	LeaderCommit int
-	Entries []LogEntry
 
 	EntryType EntryType
+
+	// If Snapshot != nil, this is a snapshot AppendEntries RPC.
+	Snapshot *Snapshot
+	SendEntries *SendEntries
 }
 
 type AppendEntriesReply struct {
@@ -42,4 +49,14 @@ type RequestVoteReply struct {
 	VoterID int
 	VoteStatus VoteStatus
 	Responsed bool
+}
+
+type InstallSnapshotArgs struct {
+	LastIncludeIndex int
+	Snapshot []byte
+}
+
+type InstallSnapshotReply struct {
+	Responsed bool
+	Hold bool
 }

@@ -183,7 +183,7 @@ type AppendEntriesArgs struct {
 2. 为什么 voteFor 不需要持久化?	
 
 
-##### 快速同步
+##### Fast Match
 
 ​	在 `TestFigure8Unreliable` 中, 会测试网络环境非常不稳定以及 leader 非常容易宕机的情况下的同步情况下的一致性情况. 在测试中会进行上千次的迭代, 每次迭代会开始一个命令, 由于每次迭代中 leader 都有概率宕机, 导致大部分命令来不及分发集群就丧失了 leader, 必须再次选举. 因此大部分命令都是无效的.
 
@@ -215,4 +215,92 @@ type AppendEntriesArgs struct {
 1. replicator goroutine 启动后, 开始二分搜索同步过程. 
 2. 定义 `prevLogIndex := -1`, 表示初始状态下 peer 没有与 leader 同步的 log. 接着在 `[0, LLI]` 的区间寻找更新 `prevLogIndex`.
 3. 最后令 replicator 的 `nextIndex = prevIndex + 1`.
+
+#### Log Compaction
+
+##### 测试逻辑
+
+​	3D 测试要求实现一个 `Snapshot(index int, snapshot []byte)` 方法, 其中第一个参数表示 snapshot 中打包的 logs 中最大的 index.
+
+​	在测试中对于每个节点对应一个 Applier, 负责接收 `applyCh` 中到达的 `ApplyMsg`.
+
+```go
+type ApplyMsg struct {
+	CommandValid bool
+	Command      interface{}
+	CommandIndex int
+
+	// For 3D:
+	SnapshotValid bool
+	Snapshot      []byte
+	SnapshotTerm  int
+	SnapshotIndex int
+}
+```
+
+ 每当 Applied Index 增长一轮, 则会触发调用 `Snapshot` 方法. 测试函数会将当前 applied index 及之前所有的 log 数组编码得到 `[]byte`, 表示一个 snapshot. 然后调用 `Snapshot` 完成了一次快照. 
+
+​	对于落后太多的 peer 节点, leader 节点会首先发送一个 `InstallSnapshot` RPC, 该 peer 节点接收到后则基于 RPC 中的 `lastIncludeIndex`, 将该 `lastIncludeIndex` 及之前的所有 logs 全部删除, 随后向 `applyCh` 发送一个 `ApplyMsg`, 并置 `SnapshotValid = true` 表示这是一个 Snapshot. 
+
+​	在测试中, tester 会对比 `ApplyMsg` 中的 `SnapshotIndex` 与 `Snapshot` 解码后的 `LastIncludeIndex` 是否一致, 只有一致时才能说明集群依然保持了一致性.	
+
+##### 对 Logs 模块的影响
+
+​	节点的 logs 模块在取快照之后, 需要将之前的 logs 全部删除. 在原本的设计中, log index 与 logs 数组中的 index 是一一对应的, 若删除部分 logs, 将导致这种对应关系丢失. 因此需要在 logs 模块中添加一个 `offset` 字段, `logIndex - offset` 即是该 log 在数组中实际的 index.
+
+​	在每一次 snapshot 中, 实际需要删除的 logs 则是 `entries[0:idx-offset+1]` 范围内的logs.
+
+##### 并发
+
+​	在加入了 snapshot 以后, `logs.entries` 需要使用读写锁进行保护. 
+
+- 需要获取写锁的情况
+
+  当 tester 调用 `Snapshot` 函数时, Leader 需要获取写锁, 因为需要删除 Entries 部分内容, 以及将节点中存储的 `snapshot` 进行更换.
+
+  当 follower 接收到 leader 的 snapshot 时, 需要获取写锁, 这与主动进行快照一致.
+
+- 需要获取读锁的情况
+
+  replicator goroutine 根据所复制的节点情况可能需要读取 Entries 和 snapshot. 不管是哪种情况, 都需要获取读锁. 
+
+  两种情况由 `entriesAfter` 函数统一控制, 其根据所寻找的 log index 决定返回 snapshot 还是 `[]LogEntry`. 
+
+##### `InstallSnapshot` RPC
+
+​	在 Raft 论文中, Snapshot 分发是通过一个单独的 RPC 调用完成的. 但是为了复用大部分代码, 可以通过修改 `AppendEntriesArgs` 来分发 Snapshot. replicator 具体逻辑为
+
+1. 开始后基于二分搜索寻找 `nextIndex`;
+2. 使用 `nextIndex` 调用 `entriesAfter` 方法; 若返回 `*Snapshot != nil`, 则说明该 peer 的匹配点已经位于 Snapshot 之中, 则发送一个 Snapshot 的 `AppendEntries` RPC, 令 `nextIndex = snapshot.lastIncludeIndex+1`;
+3. 否则分发 `[]LogEntry`. 
+4. 当 follower 接收到 snapshot 时, 将 snapshot 存储, 将已有的 entries 全部删除, 然后将 `LLI, LCI, LAI` 统一更新为 `Snapshot.LastIncludeIndex`. 并回复 `ENTRY_MATCH`. 
+
+##### Noop Count
+
+​	当 follower 接受 leader 的 snapshot 时, 需要将自己的 entries 全部删除, 此时需要重置 follower 的 `noopCount`. 
+
+​	因此需要在 `takeSnapshot` 时, 遍历所有的 entry 找到其中的 `NoopEntry`, 然后记录在下面的结构体中
+
+```go
+type Snapshot struct {
+	Snapshot []byte
+	LastIncludeIndex int
+	LastIncludeTerm int
+	NoopCount int
+}
+```
+
+#####  Binary Search
+
+​	在 replicator goroutine 中, 需要通过二分搜索找到 peer 刚好匹配的 log. 在加入 snapshot 机制后, 搜索的范围从 `[0, LLI]` 变为 `[LII, LLI]`, 其中 `LII` 表示 `LastIncludeIndex`. 
+
+​	在搜索过程中由于需要获取 `Entries` 任意 entry 的 term, 这要求在搜索过程中 entries 是不变的, 因此需要在 `matchIndex` 中获取读锁. 
+
+​	正常来说这种做法并没有问题, 但是在测试中, 当对应的 peer 被断连时, 将导致 `Call` 函数持续阻塞, 从而导致读锁持续被占用, 则 tester 无法完成 snapshot. 而糟糕的是, 由于节点采用串行的事件处理机制, 当 `SnapshotEvent` 的处理被阻塞时, 将导致后续的事件处理也被阻塞. 因此需要设计一种 只在创建 `AppendEntriesArgs` 参数时才需要占用读锁的二分搜索方法, 这种方法要求在搜索过程中出现部分 entries 被删除也可以成功找到匹配点.
+
+1. 定义 `tryIndexLogTerm` 方法, 当尝试获取小于 LII 的 entry term 时, 并不直接报错, 而是返回 false. 
+
+2. 定义双层循环, 在第一层循环中确定搜索边界 `[LII, LLI]`; 
+
+   第二层循环中取中间位置调用 `tryIndexLogTerm`, 若获取失败, 则说明已经发生了一次 snapshot; 则回到第一层循环, 获取左右边界值后重新开始.
 

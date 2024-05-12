@@ -94,8 +94,13 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	}
 	flw.tickHeartBeatTimer()
 
-	reply.EntryStatus = flw.rf.logs.followerAppendEntries(
-		args.Entries, args.PrevLogInfo)
+	if args.Snapshot != nil {
+		flw.rf.logs.followerInstallSnapshot(args.Snapshot)
+		reply.EntryStatus = ENTRY_MATCH
+		return
+	}
+
+	reply.EntryStatus = flw.rf.logs.followerAppendEntries(args.SendEntries)
 	
 	if reply.EntryStatus == ENTRY_MATCH && args.EntryType == ENTRY_T_LOG {
 		flw.rf.logs.updateCommit(args.LeaderCommit)
@@ -150,7 +155,7 @@ func (flw *Follower) tickHeartBeatTimer() {
 }
 
 func (flw *Follower) _log(f func(string, ...interface{}), format string, args ...interface{}) {
-	f("[Follower %d/%d/%d/%d] %s", flw.rf.me, flw.rf.term, flw.rf.logs.LLI(), flw.rf.logs.LCI(), fmt.Sprintf(format, args...))
+	f("[Follower %d/%d/%d/%d/%d] %s", flw.rf.me, flw.rf.term, flw.rf.logs.LLI(), flw.rf.logs.LCI(), len(flw.rf.logs.entries), fmt.Sprintf(format, args...))
 }
 
 func (flw *Follower) log(format string, args ...interface{}) {

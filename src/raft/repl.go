@@ -59,48 +59,65 @@ func (repl *Replicator) call(args *AppendEntriesArgs) *AppendEntriesReply {
 func (repl *Replicator) matchIndex() {
 	ld := repl.ld
 	logs := ld.rf.logs
-	l, r := 0, logs.LLI()
-	prevLogIndex := -1
 
-	for ld.active.Load() && l <= r {
-		m := l + (r-l)/2
-		ld.log("[repl %d] m = %d", repl.peerId, m)
-		
-		args := &AppendEntriesArgs {
-			Id: ld.rf.me,
-			Term: ld.rf.term,
-			PrevLogInfo: LogInfo {m, logs.indexLogTerm(m)},
-			LeaderCommit: logs.LCI(),
-			Entries: nil,
-			EntryType: ENTRY_T_QUERY,
+	lii := func() int {
+		logs.RLock()
+		defer logs.RUnlock()
+		if logs.snapshot != nil {
+			return logs.snapshot.LastIncludeIndex
 		}
-		round: for ld.active.Load() {
-			reply := repl.call(args)
-			if !repl.ld.active.Load() { return }
+		return 0
+	}
 
-			switch reply.EntryStatus {
-			case ENTRY_MATCH:
-				prevLogIndex = m
-				l = m + 1
-				ld.log("[repl %d] m = %d matched", repl.peerId, m)
-				break round
+	prevLogIndex := -1
+	
+	search: for ld.active.Load() {
+		l, r := lii(), logs.LLI()
+		for ld.active.Load() && l <= r {
+			m := l + (r - l)/2
+			mTerm, ok := logs.tryIndexLogTerm(m)
+			ld.log("tryIndexLogTerm, m = %d, mTerm = %d, ok = %t", m, mTerm, ok)
+			if !ok { continue search }
 
-			case ENTRY_UNMATCH:
-				ld.log("[repl %d] m = %d not matched", repl.peerId, m)
-				r = m - 1
-				break round
+			args := &AppendEntriesArgs {
+				Id: ld.rf.me,
+				Term: ld.rf.term,
+				LeaderCommit: logs.LCI(),
+				SendEntries: &SendEntries {
+					Entries: nil,
+					PrevLogInfo: LogInfo {m, mTerm}, 
+				},
+				EntryType: ENTRY_T_QUERY,
+				Snapshot: nil,
+			}
+			round: for ld.active.Load() {
+				reply := repl.call(args)
+				if !repl.ld.active.Load() { return }
 
-			case ENTRY_STALE:
-				ld.rf.transRole(followerFromLeader)
-				return
-				
-			case ENTRY_HOLD:
-				
-			default:
-				ld.fatal("Unprocessed EntryStatus: %d", reply.EntryStatus)
+				switch reply.EntryStatus {
+				case ENTRY_MATCH:
+					prevLogIndex = m
+					l = m + 1
+					ld.log("[repl %d] m = %d matched", repl.peerId, m)
+					break round
+
+				case ENTRY_UNMATCH:
+					ld.log("[repl %d] m = %d not matched", repl.peerId, m)
+					r = m - 1
+					break round
+
+				case ENTRY_STALE:
+					ld.rf.transRole(followerFromLeader)
+					return
+					
+				case ENTRY_HOLD:
+					
+				default:
+					ld.fatal("Unprocessed EntryStatus: %d", reply.EntryStatus)
+				}
 			}
 		}
-
+		break search
 	}
 	if ld.active.Load() {
 		repl.nextIndex = prevLogIndex + 1
@@ -123,21 +140,21 @@ func (repl *Replicator) start() {
 		assert(repl.nextIndex >= 0)
 
 		<- hbTicker.C
+		logs.rf.log("Replication to peer %d", repl.peerId)
 		
-		sendEntries := logs.entries[repl.nextIndex:]
+		snapshot, sendEntries := logs.entriesAfter(repl.nextIndex)
+
+		args := &AppendEntriesArgs {
+			Id: ld.rf.me,
+			Term: ld.rf.term,
+			SendEntries: sendEntries,
+			LeaderCommit: logs.LCI(),
+			EntryType: ENTRY_T_LOG,
+			Snapshot: snapshot,
+		}
 
 		round: for ld.active.Load() {
-			args := &AppendEntriesArgs {
-				Id: ld.rf.me,
-				Term: ld.rf.term,
-				PrevLogInfo: LogInfo {
-					Index: repl.nextIndex-1,
-					Term: logs.indexLogTerm(repl.nextIndex-1),
-				},
-				Entries: sendEntries,
-				LeaderCommit: logs.LCI(),
-				EntryType: ENTRY_T_LOG,
-			}
+			args.LeaderCommit = logs.LCI()
 			reply := &AppendEntriesReply {}
 
 			rpcCall := func() bool {
@@ -173,15 +190,20 @@ func (repl *Replicator) start() {
 				continue round
 
 			case ENTRY_MATCH:
-				if len(sendEntries) > 0 {
-					ld.log("%d confirmed log %d", repl.peerId, repl.nextIndex)
+				if snapshot != nil {
+					ld.log("Peer %d confirmed snapshot with lastIncludeIndex = %d", repl.peerId, snapshot.LastIncludeIndex)
+
+					repl.nextIndex = snapshot.LastIncludeIndex + 1
+				} else if len(sendEntries.Entries) > 0 {
+					ld.log("%d confirmed log [%d %d]", repl.peerId, repl.nextIndex, repl.nextIndex+len(sendEntries.Entries))
+
 					ld.rf.tryPutEv(&ReplConfirmEvent {
 						id: repl.peerId,
 						startIndex: repl.nextIndex,
-						endIndex: repl.nextIndex + len(sendEntries),
+						endIndex: repl.nextIndex + len(sendEntries.Entries),
 					}, ld)
 							
-					repl.nextIndex += len(sendEntries)
+					repl.nextIndex += len(sendEntries.Entries)
 				}
 				break round
 			}
