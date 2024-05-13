@@ -195,7 +195,7 @@ func (repl *Replicator) start() {
 
 					repl.nextIndex = snapshot.LastIncludeIndex + 1
 				} else if len(sendEntries.Entries) > 0 {
-					ld.log("%d confirmed log [%d %d]", repl.peerId, repl.nextIndex, repl.nextIndex+len(sendEntries.Entries))
+					ld.log("%d confirmed log [%d %d]", repl.peerId, repl.nextIndex, repl.nextIndex+len(sendEntries.Entries)-1)
 
 					ld.rf.tryPutEv(&ReplConfirmEvent {
 						id: repl.peerId,
@@ -245,7 +245,7 @@ func (rc *ReplCounter) confirm(peerId int, startIdx int, endIdx int) {
 	for ; i < n && rc.entries[i].bitVec.Count() >= rc.rf.majorN; i++ {}
 
 	if i > 0 {
-		rc.rf.log("Update LCI to %d", rc.entries[i-1].index)
+		rc.rf.log("updateCommit to %d", rc.entries[i-1].index)
 		rc.rf.logs.updateCommit(rc.entries[i-1].index)
 		rc.entries = rc.entries[i:]
 	}

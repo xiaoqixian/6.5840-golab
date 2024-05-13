@@ -103,6 +103,7 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	reply.EntryStatus = flw.rf.logs.followerAppendEntries(args.SendEntries)
 	
 	if reply.EntryStatus == ENTRY_MATCH && args.EntryType == ENTRY_T_LOG {
+		flw.rf.log("updateCommit to %d", args.LeaderCommit)
 		flw.rf.logs.updateCommit(args.LeaderCommit)
 	}
 }

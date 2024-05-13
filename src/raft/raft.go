@@ -216,7 +216,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		if args.SendEntries != nil && len(args.SendEntries.Entries) > 0 {
 			indices = []int{args.SendEntries.PrevLogInfo.Index+1, args.SendEntries.PrevLogInfo.Index+len(args.SendEntries.Entries)}
 		}
-		rf.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], Entries = %v", args.Id, args.Term, args.SendEntries.PrevLogInfo.Index, args.SendEntries.PrevLogInfo.Term, indices)
+		rf.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d, Entries = %v", args.Id, args.Term, args.SendEntries.PrevLogInfo.Index, args.SendEntries.PrevLogInfo.Term, args.LeaderCommit, indices)
 	}
 
 	if !rf.dead.Load() {
@@ -337,6 +337,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 func (rf *Raft) Kill() {
 	rf.role.stop()
 	rf.dead.Store(true)
+	rf.log("Now I'm dead")
+	<- rf.logs.applierDone
+	rf.log("applier done")
 	// Your code here, if desired.
 }
 
@@ -383,22 +386,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	}
 
 	// read snapshot
-	snapshot := func() *Snapshot {
-		var snapshot Snapshot
-		reader := bytes.NewReader(persister.ReadSnapshot())
-		dec := gob.NewDecoder(reader)
-		switch err := dec.Decode(&snapshot); err {
-		case nil:
-			return &snapshot
-
-		case io.EOF:
-			return nil
-
-		default:
-			log.Fatalf("Read snapshot persist failed: %s", err.Error())
-		}
-		return nil
-	}()
+	snapshot := rf.persister.ReadSnapshot()
 
 	// read persistent data and init logs
 	var logs *Logs

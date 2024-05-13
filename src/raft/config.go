@@ -183,6 +183,8 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 
 // returns "" or error string
 func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
+	tlog("server %d ingest snapshot with index = %d", i, index)
+
 	if snapshot == nil {
 		log.Fatalf("nil snapshot")
 		return "nil snapshot"
@@ -209,6 +211,7 @@ func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
 		cfg.logs[i][j] = xlog[j]
 	}
 	cfg.lastApplied[i] = lastIncludedIndex
+	tlog("Snapshot: set server %d last applied = %d", i, lastIncludedIndex)
 	return ""
 }
 
@@ -226,11 +229,16 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 	for m := range applyCh {
 		err_msg := ""
 		if m.SnapshotValid {
+			tlog("server %d applied snapshot with LII %d", i, m.SnapshotIndex)
+
 			cfg.mu.Lock()
 			err_msg = cfg.ingestSnap(i, m.Snapshot, m.SnapshotIndex)
 			cfg.mu.Unlock()
 		} else if m.CommandValid {
+			tlog("server %d applied command %d, last applied = %d", i, m.CommandIndex, cfg.lastApplied[i])
+
 			if m.CommandIndex != cfg.lastApplied[i]+1 {
+				log.Fatalf("server %v apply out of order, expected index %v, got %v", i, cfg.lastApplied[i]+1, m.CommandIndex)
 				err_msg = fmt.Sprintf("server %v apply out of order, expected index %v, got %v", i, cfg.lastApplied[i]+1, m.CommandIndex)
 			}
 
@@ -246,6 +254,7 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 
 			cfg.mu.Lock()
 			cfg.lastApplied[i] = m.CommandIndex
+			tlog("Command: set server %d last applied = %d", i, m.CommandIndex)
 			cfg.mu.Unlock()
 
 			if (m.CommandIndex+1)%SnapShotInterval == 0 {

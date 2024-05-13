@@ -20,9 +20,7 @@ type PersistentLogs struct {
 	NoopCount int
 	Offset int
 	
-	LastIncludeIndex int
-	LastIncludeTerm int
-	SnapshotNoopCount int
+	Snapshot *Snapshot
 }
 
 type PersistentState struct {
@@ -33,6 +31,7 @@ type PersistentState struct {
 // this function should be called when 
 // the Logs is locked.
 func (rf *Raft) encodeState() []byte {
+	rf.log("Encode state, LAI = %d", rf.logs.lai.Load())
 	logs := rf.logs
 	state := PersistentState { 
 		Term: rf.term,
@@ -45,6 +44,15 @@ func (rf *Raft) encodeState() []byte {
 			Offset: logs.offset,
 		},
 	}
+	if logs.snapshot != nil {
+		state.Logs.Snapshot = &Snapshot {
+			Snapshot: nil,
+			LastIncludeIndex: logs.snapshot.LastIncludeIndex,
+			LastIncludeTerm: logs.snapshot.LastIncludeTerm,
+			LastIncludeCmdIndex: logs.snapshot.LastIncludeCmdIndex,
+			NoopCount: logs.snapshot.NoopCount,
+		}
+	}
 
 	buf := new(bytes.Buffer)
 	enc := gob.NewEncoder(buf)
@@ -55,24 +63,6 @@ func (rf *Raft) encodeState() []byte {
 	return buf.Bytes()
 }
 
-// this function should be called when 
-// the Logs is locked.
-func (rf *Raft) encodeSnapshot() []byte {
-	// the Logs persist snapshot everytime it 
-	// update its snapshot.
-	// The persistence should be done before the 
-	// write lock is released. 
-	// So we don't need to acquire Logs.Lock() here
-
-	buf := new(bytes.Buffer)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(rf.logs.snapshot)
-	if err != nil {
-		rf.fatal("Encode logs snapshot failed: %s", err.Error())
-	}
-	
-	return buf.Bytes()
-}
 
 func (rf *Raft) persistState() {
 	// if !rf.saveLock.TryLock() { return }
@@ -82,16 +72,13 @@ func (rf *Raft) persistState() {
 	rf.persister.SaveState(rf.encodeState())
 }
 
-func (rf *Raft) persistSnapshot() {
-	rf.saveLock.Lock()
-	defer rf.saveLock.Unlock()
-
-	rf.persister.SaveSnapshot(rf.encodeSnapshot())
-}
-
 func (rf *Raft) persist() {
 	rf.saveLock.Lock()
 	defer rf.saveLock.Unlock()
 
-	rf.persister.Save(rf.encodeState(), rf.encodeSnapshot())
+	if rf.logs.snapshot != nil {
+		rf.persister.Save(rf.encodeState(), rf.logs.snapshot.Snapshot)
+	} else {
+		rf.persister.Save(rf.encodeState(), nil)
+	}
 }

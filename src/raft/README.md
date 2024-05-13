@@ -304,3 +304,24 @@ type Snapshot struct {
 
    第二层循环中取中间位置调用 `tryIndexLogTerm`, 若获取失败, 则说明已经发生了一次 snapshot; 则回到第一层循环, 获取左右边界值后重新开始.
 
+##### 问题
+
+1. 在 `TestSnapshotInstallCrash3D` 测试中, 在 `Logs.updateCommit` 函数中出现了需要 Apply 的 entries 索引小于 0 的情况. 
+
+   确定 Apply 范围的代码行 为
+
+   ```go
+   st, ed := logs.LAI()-logs.offset+1, newCommit-logs.offset+1
+   ```
+
+   问题出现在起始索引 `st<0` 上, `logs.lai` 是一个原子变量, 而 entries 的 apply 过程是另一个协程通过 channel 来完成的. 当每次更新 LCI 以及 Install Snapshot 时, 就向该 channel 内发送一个特定的对象表示相应的 entries 可以被 apply, apply 之后再由该协程更新 LAI. 
+
+   提前更新 LAI 不是一个好的选择, 因为 tester 允许我们重复 apply, 但是不允许漏 apply. 如果在 apply 的过程中出现 crash, 将导致 LAI 已经更新但是 tester 没有接收到 applied entries 的情况. 
+
+   因此我考虑取消单独的 applier goroutine, 直接在接收到 entries 和 snapshot 的时候就 apply, 然后更新 LCI.
+
+2. 上面的操作带来了新的问题, tester 进行 snapshot 的时刻非常可能发生在一次连续的 apply 操作的中间. 
+
+   在 `Snapshot` 函数中会创建一个 `SnapshotEvent`, 然后一直等待处理. 但是由于主线程在完成 apply 操作, 无法立刻处理该事件; 而该事件没有处理返回, tester 就无法继续接收 `ApplyMsg`. 从而造成了死锁.
+
+3. 现在的一个补救办法就是在事件机制上开个后门, `SnapshotEvent` 放入之后就直接返回, 并不进行等待. 

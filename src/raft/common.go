@@ -19,6 +19,7 @@ const (
 	NEW_LOG_CHECK_FREQ = time.Duration(20 * time.Millisecond)
 	CANDIDATE_CHECK_FREQ = time.Duration(10 * time.Millisecond)
 	HOLD_WAITING = time.Duration(10 * time.Millisecond)
+	APPLY_CHECK_FREQ = time.Duration(50 * time.Millisecond)
 )
 var (
 	HEARTBEAT_TIMEOUT = []int{ 300, 400 }

@@ -5,8 +5,10 @@
 package raft
 
 import (
+	"log"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -44,21 +46,23 @@ type Logs struct {
 	offset int
 
 	applier chan ApplyEntry
+	applierDone chan bool
 
 	snapshot *Snapshot
 
 	sync.RWMutex
 }
 
-func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot *Snapshot) *Logs {
+func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) *Logs {
 	logs := &Logs {
 		rf: rf,
 		offset: 0,
 		applier: make(chan ApplyEntry, 10),
 		snapshot: nil,
+		applierDone: make(chan bool, 1),
 	}
 	if persistLogs == nil {
-		assert(snapshot == nil)
+		assert(len(snapshot) == 0)
 		logs.lci.Store(-1)
 		logs.lli.Store(-1)
 		logs.lai.Store(-1)
@@ -68,45 +72,113 @@ func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot *Snapshot) *Logs {
 		logs.lai.Store(persistLogs.Lai)
 		logs.entries = persistLogs.Entries
 		logs.noopCount = persistLogs.NoopCount
-		logs.snapshot = snapshot
+		logs.snapshot = persistLogs.Snapshot
+		logs.offset = persistLogs.Offset
+
+		if logs.snapshot != nil {
+			assert(len(snapshot) > 0)
+			logs.snapshot.Snapshot = snapshot
+		}
+
+		log.Printf("[Server %d] Recover with\n" +
+		"LLI = %d, LCI = %d, LAI = %d\n" +
+		"offset = %d\n", rf.me,
+		persistLogs.Lli, persistLogs.Lci, persistLogs.Lai,
+		logs.offset)
+		if logs.snapshot != nil {
+			log.Printf("[Server %d] Recover with LII = %d\n", rf.me, logs.snapshot.LastIncludeIndex)
+		}
+	}
+
+	// check unfinished snapshot apply.
+	if logs.snapshot != nil && logs.LAI() < logs.snapshot.LastIncludeIndex {
+		log.Printf("Add ApplySnapshotEntry for unfinished snapshot with index = %d", logs.snapshot.LastIncludeIndex)
+		logs.applier <- &ApplySnapshotEntry { logs.snapshot }
+	} else if logs.LAI() < logs.LCI() {
+		log.Printf("Add ApplyLogEntry for unfinished logs with lai = %d, lci = %d", logs.LAI(), logs.LCI())
+		st, ed := logs.LAI()-logs.offset+1, logs.LCI()-logs.offset+1
+		logs.applier <- &ApplyLogEntry {
+			applyEntries: logs.entries[st:ed],
+			lai: logs.LCI(),
+		}
 	}
 
 	go func() {
-		for !logs.rf.dead.Load() {
-			aet := <- logs.applier
+		rf := logs.rf
+		ticker := time.NewTicker(APPLY_CHECK_FREQ)
+		defer ticker.Stop()
+		// non-blocking send ApplyMsg to the other end,
+		// return false if apply failed because the server is dead.
+		applyf := func(msg ApplyMsg) bool {
+			for !rf.dead.Load() {
+				select {
+				case rf.applyCh <- msg:
+					return true
+				case <- ticker.C:
+				}
+			}
+			rf.log("Applier: found server dead")
+			return false
+		}
+
+		apply: for !logs.rf.dead.Load() {
+			var aet ApplyEntry
+			wait: for {
+				select {
+				case aet = <- logs.applier:
+					break wait
+				case <- ticker.C:
+					if logs.rf.dead.Load() { break apply }
+				}
+			}
 			
 			switch aet := aet.(type) {
 			case *ApplyLogEntry:
+				lai := logs.LAI()
 				for _, et := range aet.applyEntries {
 					switch et.CommandIndex {
 					case NOOP_INDEX:
-						
+						lai++
 					default:
-						logs.rf.applyCh <- ApplyMsg {
+						ok := applyf(ApplyMsg {
 							CommandValid: true,
 							CommandIndex: et.CommandIndex,
 							Command: et.Content,
+						})
+						if ok {
+							lai++
+						} else {
+							// logs.lai.Store(int32(lai))
+							// rf.log("Entries update LAI = %d", lai)
+							break apply
 						}
 						logs.rf.log("Applied log %d", et.CommandIndex)
 					}
 				}
-
-				logs.lai.Store(int32(aet.lai))
-				logs.rf.log("Update LAI to %d", aet.lai)
+				// assert(lai == aet.lai)
+				// logs.lai.Store(int32(lai))
+				// rf.log("Entries update LAI = %d", aet.lai)
 
 			case *ApplySnapshotEntry:
-				logs.rf.applyCh <- ApplyMsg {
+				if !applyf(ApplyMsg {
 					SnapshotValid: true,
 					Snapshot: aet.snapshot.Snapshot,
 					SnapshotIndex: aet.snapshot.LastIncludeCmdIndex,
 					SnapshotTerm: aet.snapshot.LastIncludeTerm,
+				}) {
+					logs.rf.persistState()
+					break apply
 				}
 				logs.lai.Store(int32(aet.snapshot.LastIncludeIndex))
+				rf.log("Snapshot update LAI = %d", logs.LAI())
+				logs.rf.persistState()
 
 			default:
 				logs.rf.fatal("Unknown ApplyEntry type: %s", typeName(aet))
 			}
 		}
+		rf.log("LAI = %d before applier quit", logs.LAI())
+		logs.applierDone <- true
 	}()
 	return logs
 }
@@ -117,8 +189,9 @@ func (logs *Logs) updateCommit(leaderCommit int) {
 	}
 
 	newCommit := minInt(leaderCommit, logs.LLI())
+	logs.rf.log("updateCommit: newCommit = %d", newCommit)
 	if newCommit > logs.LCI() {
-		st, ed := logs.LAI()-logs.offset+1, newCommit-logs.offset+1
+		st, ed := logs.LCI()-logs.offset+1, newCommit-logs.offset+1
 		logs.applier <- &ApplyLogEntry {
 			applyEntries: logs.entries[st:ed],
 			lai: newCommit,
@@ -318,6 +391,7 @@ func (logs *Logs) takeSnapshot(cmdIndex int, snapshot []byte) {
 
 	logs.entries = logs.entries[logIndex-logs.offset+1:]
 	logs.offset = logIndex + 1
+	logs.lai.Store(int32(logIndex))
 
 	logs.rf.persist()
 }
