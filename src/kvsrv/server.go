@@ -20,7 +20,7 @@ type SyncInfo struct {
 }
 
 type KVServer struct {
-	table sync.Map
+	data sync.Map
 	clientsSync sync.Map
 }
 
@@ -51,7 +51,7 @@ func (kv *KVServer) syncRpcID(args *PutAppendArgs, reply *PutAppendReply) bool {
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
-	value, ok := kv.table.Load(args.Key)
+	value, ok := kv.data.Load(args.Key)
 	if ok {
 		value.(*Value).RLock()
 		reply.Value = value.(*Value).value
@@ -62,7 +62,7 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 func (kv *KVServer) Put(args *PutAppendArgs, reply *PutAppendReply) {
 	if !kv.syncRpcID(args, reply) { return }
 
-	val, ok := kv.table.LoadOrStore(args.Key, &Value { value: args.Value })
+	val, ok := kv.data.LoadOrStore(args.Key, &Value { value: args.Value })
 	if ok {
 		val.(*Value).Lock()
 		defer val.(*Value).Unlock()
@@ -73,7 +73,7 @@ func (kv *KVServer) Put(args *PutAppendArgs, reply *PutAppendReply) {
 func (kv *KVServer) Append(args *PutAppendArgs, reply *PutAppendReply) {
 	if !kv.syncRpcID(args, reply) { return }
 
-	val, ok := kv.table.LoadOrStore(args.Key, &Value { value: args.Value })
+	val, ok := kv.data.LoadOrStore(args.Key, &Value { value: args.Value })
 	if ok {
 		val.(*Value).Lock()
 		defer val.(*Value).Unlock()
