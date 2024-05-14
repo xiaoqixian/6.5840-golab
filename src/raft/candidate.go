@@ -22,25 +22,6 @@ const (
 )
 
 type Candidate struct {
-<<<<<<< HEAD
-	term int
-	termLock sync.RWMutex
-	receivedVotes atomic.Uint32
-
-	status atomic.Value
-	
-	newLeaderInfo *LeaderInfo // set only when defeated in election .
-
-	electionTimer *time.Timer
-
-	voters []bool
-	VOTES_TO_WIN uint32
-	auditLock sync.Mutex
-
-	reelectTimer *time.Timer
-
-=======
->>>>>>> msg-queue
 	rf *Raft
 	votes int
 	voters []bool
@@ -62,24 +43,6 @@ func (cd *Candidate) activate() {
 	}
 }
 
-<<<<<<< HEAD
-func (cd *Candidate) waitUpdate() {
-	for cd.status.Load() == POLL_UPDATING {}
-}
-
-func (cd *Candidate) requestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	rf := cd.rf
-	reply.VoterID = rf.me
-
-	cd.termLock.RLock()
-	term := cd.term
-	cd.termLock.RUnlock()
-
-	if args.Term > term {
-		// cd.status.CompareAndSwap(POLLING, DEFEATED)
-		cd.breakElection(DEFEATED)
-		reply.VoteStatus = VOTE_GRANTED
-=======
 func (cd *Candidate) stop() bool {
 	if cd.active.CompareAndSwap(true, false) {
 		if cd.elecTimer != nil {
@@ -88,7 +51,6 @@ func (cd *Candidate) stop() bool {
 		cd.rf.chLock.Lock()
 		cd.log("Stopped")
 		return true
->>>>>>> msg-queue
 	} else {
 		return false
 	}
@@ -162,89 +124,6 @@ func (cd *Candidate) startElection() {
 		CandidateID: rf.me,
 		LastLogInfo: rf.logs.lastLogInfo(),
 	}
-<<<<<<< HEAD
-	cd.log("Election info: last commit index = %d, last commit term = %d", args.LastLogIndex, args.LastLogTerm)
-	
-	election: for {
-
-		if cd.status.CompareAndSwap(POLLING, POLL_UPDATING) {
-			cd.termLock.Lock()
-			cd.log("New round election")
-			cd.term++
-			cd.receivedVotes.Store(0)
-			cd.voters = make([]bool, len(rf.peers))
-			cd.setElectionTimer()
-			cd.termLock.Unlock()
-
-			// update RequestVoteArgs
-			args.Term = cd.term
-			
-			assert(cd.status.Load() == POLL_UPDATING)
-			cd.status.CompareAndSwap(POLL_UPDATING, POLLING)
-		} else {
-			cd.log("Break election as in status %s", cd.statusName())
-			break election
-		}
-
-		cd.log("Election restart with term %d", cd.term)
-
-		for i, peer := range rf.peers {
-			if cd.status.Load() != POLLING { break }
-			if i == rf.me { continue }
-
-			go func(peer *labrpc.ClientEnd, args *RequestVoteArgs, peerId int, currTerm int) {
-				reply := &RequestVoteReply {}				
-				ok := peer.Call("Raft.RequestVote", args, reply)
-				cd.log("Request vote from %d", peerId)
-				
-				for tries := RPC_CALL_TRY_TIMES;
-					!ok && tries > 0 && cd.status.Load() == POLLING; 
-					tries-- {
-
-					time.Sleep(RPC_FAIL_WAITING)
-					ok = peer.Call("Raft.RequestVote", args, reply)
-					cd.log("Request vote from %d", peerId)
-				}
-
-				cd.termLock.RLock()
-				if ok && currTerm == cd.term {
-					cd.auditVote(reply)
-				}
-				cd.termLock.RUnlock()
-			}(peer, args, i, cd.term)
-		}
-
-		for {
-			switch cd.status.Load() {
-			case POLLING:
-				time.Sleep(CANDIDATE_CHECK_FREQ)
-			case POLL_WAITING:
-				time.Sleep(CANDIDATE_CHECK_FREQ)
-			case POLL_NEW_ROUND:
-				if cd.status.CompareAndSwap(POLL_NEW_ROUND, POLLING) {
-					continue election
-				}
-
-			case POLL_TIMEOUT:
-				cd.status.CompareAndSwap(POLL_TIMEOUT, POLL_WAITING)
-				cd.setReelectTimer()
-
-			case ELECTED:
-				cd.log("Switch ELECTED")
-				defer cd.winElection()
-				break election
-
-			case DEFEATED:
-				cd.log("Switch DEFEATED")
-				defer cd.electionFallback()
-				break election
-
-			case CANDIDATE_KILLED:
-				break election
-
-			default:
-				cd.fatalf("Unknown status: %d", cd.status.Load().(CandidateStatus))
-=======
 	for i, peer := range rf.peers {
 		if i == rf.me { continue }
 		
@@ -259,7 +138,6 @@ func (cd *Candidate) startElection() {
 				tries-- {
 				time.Sleep(RPC_FAIL_WAITING)
 				ok = peer.Call("Raft.RequestVote", args, reply)
->>>>>>> msg-queue
 			}
 
 			if !cd.active.Load() { return }
@@ -295,24 +173,6 @@ func candidateFromFollower(r Role) Role {
 	flw := r.(*Follower)
 	return &Candidate {
 		rf: flw.rf,
-<<<<<<< HEAD
-		voters: make([]bool, len(flw.rf.peers)),
-		VOTES_TO_WIN: uint32(len(flw.rf.peers)/2),
-		term: flw.term,
-	}
-	cd.status.Store(POLLING)
-	return cd
-}
-
-func (cd *Candidate) setElectionTimer() {
-	d := genRandomDuration(POLL_TIMEOUT_DURATION...)
-	cd.log("Set electionTimer timeout duration = %s", d)
-	if cd.electionTimer == nil || !cd.electionTimer.Reset(d) {
-		cd.electionTimer = time.AfterFunc(d, func() {
-			cd.status.CompareAndSwap(POLLING, POLL_TIMEOUT)
-		})
-=======
->>>>>>> msg-queue
 	}
 }
 
