@@ -58,6 +58,8 @@ type config struct {
 	bytes0    int64
 	maxIndex  int
 	maxIndex0 int
+
+	description string
 }
 
 var ncpu_once sync.Once
@@ -137,6 +139,8 @@ func (cfg *config) crash1(i int) {
 	}
 }
 
+// check if the prev log exists, and if all the committed logs at the 
+// commandIndex are the same.
 func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	err_msg := ""
 	v := m.Command
@@ -181,6 +185,8 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 
 // returns "" or error string
 func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
+	tlog("server %d ingest snapshot with index = %d", i, index)
+
 	if snapshot == nil {
 		log.Fatalf("nil snapshot")
 		return "nil snapshot"
@@ -189,13 +195,17 @@ func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
 	d := labgob.NewDecoder(r)
 	var lastIncludedIndex int
 	var xlog []interface{}
-	if d.Decode(&lastIncludedIndex) != nil ||
-		d.Decode(&xlog) != nil {
-		log.Fatalf("snapshot decode error")
+	if err := d.Decode(&lastIncludedIndex); err != nil {
+		log.Fatalf("snapshot decode error: %s", err.Error())
 		return "snapshot Decode() error"
 	}
+	if err := d.Decode(&xlog); err != nil {
+		log.Fatalf("snapshot decode error: %s", err.Error())
+		return "snapshot Decode() error"
+	}
+
 	if index != -1 && index != lastIncludedIndex {
-		err := fmt.Sprintf("server %v snapshot doesn't match m.SnapshotIndex", i)
+		err := fmt.Sprintf("server %v snapshot lastIncludedIndex %d doesn't match m.SnapshotIndex %d", i, index, lastIncludedIndex)
 		return err
 	}
 	cfg.logs[i] = map[int]interface{}{}
@@ -203,6 +213,7 @@ func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
 		cfg.logs[i][j] = xlog[j]
 	}
 	cfg.lastApplied[i] = lastIncludedIndex
+	tlog("Snapshot: set server %d last applied = %d", i, lastIncludedIndex)
 	return ""
 }
 
@@ -220,11 +231,16 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 	for m := range applyCh {
 		err_msg := ""
 		if m.SnapshotValid {
+			tlog("server %d applied snapshot with LII %d", i, m.SnapshotIndex)
+
 			cfg.mu.Lock()
 			err_msg = cfg.ingestSnap(i, m.Snapshot, m.SnapshotIndex)
 			cfg.mu.Unlock()
 		} else if m.CommandValid {
+			tlog("server %d applied command %d, last applied = %d", i, m.CommandIndex, cfg.lastApplied[i])
+
 			if m.CommandIndex != cfg.lastApplied[i]+1 {
+				log.Fatalf("server %v apply out of order, expected index %v, got %v", i, cfg.lastApplied[i]+1, m.CommandIndex)
 				err_msg = fmt.Sprintf("server %v apply out of order, expected index %v, got %v", i, cfg.lastApplied[i]+1, m.CommandIndex)
 			}
 
@@ -233,13 +249,14 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 				var prevok bool
 				err_msg, prevok = cfg.checkLogs(i, m)
 				cfg.mu.Unlock()
-				if m.CommandIndex > 1 && prevok == false {
+				if m.CommandIndex > 1 && !prevok {
 					err_msg = fmt.Sprintf("server %v apply out of order %v", i, m.CommandIndex)
 				}
 			}
 
 			cfg.mu.Lock()
 			cfg.lastApplied[i] = m.CommandIndex
+			tlog("Command: set server %d last applied = %d", i, m.CommandIndex)
 			cfg.mu.Unlock()
 
 			if (m.CommandIndex+1)%SnapShotInterval == 0 {
@@ -299,7 +316,7 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 		cfg.saved[i] = cfg.saved[i].Copy()
 
 		snapshot := cfg.saved[i].ReadSnapshot()
-		if snapshot != nil && len(snapshot) > 0 {
+		if len(snapshot) > 0 {
 			// mimic KV server and process snapshot now.
 			// ideally Raft should send it up on applyCh...
 			err := cfg.ingestSnap(i, snapshot, -1)
@@ -553,11 +570,19 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 3B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
+	switch cmd := cmd.(type) {
+	case int:
+		log.Printf("\n==============================\n\nStart command %d, expectedServers = %d, retry = %t", cmd, expectedServers, retry)
+
+	case string:
+		log.Printf("\n==============================\n\nStart command %s, expectedServers = %d, retry = %t", cmd[:10], expectedServers, retry)
+	}
+
 	t0 := time.Now()
-	starts := 0
+	starts, cmd_index := 0, -1
 	for time.Since(t0).Seconds() < 10 && !cfg.checkFinished() {
 		// try all the servers, maybe one is the leader.
-		index := -1
+		index, s_index := -1, -1
 		for si := 0; si < cfg.n; si++ {
 			starts = (starts + 1) % cfg.n
 			var rf *Raft
@@ -570,26 +595,25 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 				index1, _, ok := rf.Start(cmd)
 				if ok {
 					index = index1
+					s_index = starts
 					break
 				}
 			}
 		}
 
-		tlog("Command index = %d", index)
+		tlog("Command %d started at index = %d by leader %d", cmd, index, s_index)
 
 		if index != -1 {
+			cmd_index = index
 			// somebody claimed to be the leader and to have
 			// submitted our command; wait a while for agreement.
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := cfg.nCommitted(index)
-				tlog("Command %d replicated count = %d", index, nd)
-				if nd > 0 && nd >= expectedServers {
-					// committed
-					if cmd1 == cmd {
-						// and it was the command we submitted.
-						return index
-					}
+				tlog("Command %d replicated count = %d, cmd1 = %d, cmd = %d", index, nd, cmd1, cmd)
+				if nd >= expectedServers && cmd1 == cmd {
+					tlog("Command with index %d agreed", cmd_index)
+					return index
 				}
 				time.Sleep(20 * time.Millisecond)
 			}
@@ -601,8 +625,9 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 		}
 	}
 	if !cfg.checkFinished() {
-		cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
+		cfg.t.Fatalf("one(%v) failed to reach agreement after 10 secs", cmd)
 	}
+	tlog("Command with index %d failed to commit", cmd_index)
 	return -1
 }
 
@@ -616,6 +641,7 @@ func (cfg *config) begin(description string) {
 	cfg.bytes0 = cfg.bytesTotal()
 	cfg.cmds0 = 0
 	cfg.maxIndex0 = cfg.maxIndex
+	cfg.description = description
 }
 
 // end a Test -- the fact that we got here means there
@@ -624,7 +650,7 @@ func (cfg *config) begin(description string) {
 // and some performance numbers.
 func (cfg *config) end() {
 	cfg.checkTimeout()
-	if cfg.t.Failed() == false {
+	if !cfg.t.Failed() {
 		cfg.mu.Lock()
 		t := time.Since(cfg.t0).Seconds()       // real time
 		npeers := cfg.n                         // number of Raft peers
@@ -633,8 +659,10 @@ func (cfg *config) end() {
 		ncmds := cfg.maxIndex - cfg.maxIndex0   // number of Raft agreements reported
 		cfg.mu.Unlock()
 
-		fmt.Printf("  ... Passed --")
+		fmt.Printf("%s  ... Passed --", cfg.description)
 		fmt.Printf("  %4.1f  %d %4d %7d %4d\n", t, npeers, nrpc, nbytes, ncmds)
+	} else {
+		log.Fatalf("%s ... FAIL --", cfg.description)
 	}
 }
 
@@ -651,5 +679,5 @@ func (cfg *config) LogSize() int {
 }
 
 func tlog(format string, args ...interface{}) {
-	log.Printf("[Test] %s\n", fmt.Sprintf(format, args...))
+	log.Printf("%s\n", fmt.Sprintf(format, args...))
 }

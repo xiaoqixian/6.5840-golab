@@ -5,139 +5,444 @@
 package raft
 
 import (
+	"log"
 	"sync"
 	"sync/atomic"
+	"time"
+)
+
+const (
+	NOOP_INDEX int = -1
 )
 
 type LogEntry struct {
+	CommandIndex int // -1 represents Noop Entry.
 	Term int
 	Content interface{}
 }
-type Logs struct {
-	entries []*LogEntry
-	lastCommitedIndex atomic.Int32
-	lastAppliedIndex atomic.Int32
-	applyCh chan ApplyMsg
-	applyCount int
-	entryCount int
-	sync.RWMutex
-
-	rf *Raft
-
-	applyLock sync.Mutex
+type LogInfo struct {
+	Index int
+	Term int
 }
 
-func newLogs(rf *Raft, applyCh chan ApplyMsg) *Logs {
+type ApplyEntry interface {}
+
+type ApplyLogEntry struct {
+	applyEntries []LogEntry
+	// for updating LAI after all entries applied
+	lai int
+}
+type ApplySnapshotEntry struct {
+	snapshot *Snapshot
+}
+
+type Logs struct {
+	entries []LogEntry
+	lci atomic.Int32
+	lli atomic.Int32
+	lai atomic.Int32
+	noopCount int
+	rf *Raft
+	offset int
+
+	applier chan ApplyEntry
+	applierDone chan bool
+
+	snapshot *Snapshot
+
+	sync.RWMutex
+}
+
+func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) *Logs {
 	logs := &Logs {
-		applyCh: applyCh,
 		rf: rf,
+		offset: 0,
+		applier: make(chan ApplyEntry, 10),
+		snapshot: nil,
+		applierDone: make(chan bool, 1),
 	}
-	logs.lastCommitedIndex.Store(-1)
-	logs.lastAppliedIndex.Store(-1)
+	if persistLogs == nil {
+		assert(len(snapshot) == 0)
+		logs.lci.Store(-1)
+		logs.lli.Store(-1)
+		logs.lai.Store(-1)
+	} else {
+		logs.lli.Store(persistLogs.Lli)
+		logs.lci.Store(persistLogs.Lci)
+		logs.lai.Store(persistLogs.Lai)
+		logs.entries = persistLogs.Entries
+		logs.noopCount = persistLogs.NoopCount
+		logs.snapshot = persistLogs.Snapshot
+		logs.offset = persistLogs.Offset
+
+		if logs.snapshot != nil {
+			assert(len(snapshot) > 0)
+			logs.snapshot.Snapshot = snapshot
+		}
+
+		log.Printf("[Server %d] Recover with\n" +
+		"LLI = %d, LCI = %d, LAI = %d\n" +
+		"offset = %d\n", rf.me,
+		persistLogs.Lli, persistLogs.Lci, persistLogs.Lai,
+		logs.offset)
+		if logs.snapshot != nil {
+			log.Printf("[Server %d] Recover with LII = %d\n", rf.me, logs.snapshot.LastIncludeIndex)
+		}
+	}
+
+	// check unfinished snapshot apply.
+	if logs.snapshot != nil && logs.LAI() < logs.snapshot.LastIncludeIndex {
+		log.Printf("Add ApplySnapshotEntry for unfinished snapshot with index = %d", logs.snapshot.LastIncludeIndex)
+		logs.applier <- &ApplySnapshotEntry { logs.snapshot }
+	} else if logs.LAI() < logs.LCI() {
+		log.Printf("Add ApplyLogEntry for unfinished logs with lai = %d, lci = %d", logs.LAI(), logs.LCI())
+		st, ed := logs.LAI()-logs.offset+1, logs.LCI()-logs.offset+1
+		logs.applier <- &ApplyLogEntry {
+			applyEntries: logs.entries[st:ed],
+			lai: logs.LCI(),
+		}
+	}
+
+	go func() {
+		rf := logs.rf
+		ticker := time.NewTicker(APPLY_CHECK_FREQ)
+		defer ticker.Stop()
+		// non-blocking send ApplyMsg to the other end,
+		// return false if apply failed because the server is dead.
+		applyf := func(msg ApplyMsg) bool {
+			for !rf.dead.Load() {
+				select {
+				case rf.applyCh <- msg:
+					return true
+				case <- ticker.C:
+				}
+			}
+			rf.log("Applier: found server dead")
+			return false
+		}
+
+		apply: for !logs.rf.dead.Load() {
+			var aet ApplyEntry
+			wait: for {
+				select {
+				case aet = <- logs.applier:
+					break wait
+				case <- ticker.C:
+					if logs.rf.dead.Load() { break apply }
+				}
+			}
+			
+			switch aet := aet.(type) {
+			case *ApplyLogEntry:
+				lai := logs.LAI()
+				for _, et := range aet.applyEntries {
+					switch et.CommandIndex {
+					case NOOP_INDEX:
+						lai++
+					default:
+						ok := applyf(ApplyMsg {
+							CommandValid: true,
+							CommandIndex: et.CommandIndex,
+							Command: et.Content,
+						})
+						if ok {
+							lai++
+						} else {
+							// logs.lai.Store(int32(lai))
+							// rf.log("Entries update LAI = %d", lai)
+							break apply
+						}
+						logs.rf.log("Applied log %d", et.CommandIndex)
+					}
+				}
+				// assert(lai == aet.lai)
+				// logs.lai.Store(int32(lai))
+				// rf.log("Entries update LAI = %d", aet.lai)
+
+			case *ApplySnapshotEntry:
+				if !applyf(ApplyMsg {
+					SnapshotValid: true,
+					Snapshot: aet.snapshot.Snapshot,
+					SnapshotIndex: aet.snapshot.LastIncludeCmdIndex,
+					SnapshotTerm: aet.snapshot.LastIncludeTerm,
+				}) {
+					logs.rf.persistState()
+					break apply
+				}
+				logs.lai.Store(int32(aet.snapshot.LastIncludeIndex))
+				rf.log("Snapshot update LAI = %d", logs.LAI())
+				logs.rf.persistState()
+
+			default:
+				logs.rf.fatal("Unknown ApplyEntry type: %s", typeName(aet))
+			}
+		}
+		rf.log("LAI = %d before applier quit", logs.LAI())
+		logs.applierDone <- true
+	}()
 	return logs
 }
 
-func (logs *Logs) lastLogIndex() int {
+func (logs *Logs) updateCommit(leaderCommit int) {
+	if leaderCommit <= logs.LCI() {
+		return
+	}
+
+	newCommit := minInt(leaderCommit, logs.LLI())
+	logs.rf.log("updateCommit: newCommit = %d", newCommit)
+	if newCommit > logs.LCI() {
+		st, ed := logs.LCI()-logs.offset+1, newCommit-logs.offset+1
+		logs.applier <- &ApplyLogEntry {
+			applyEntries: logs.entries[st:ed],
+			lai: newCommit,
+		}
+
+		logs.lci.Store(int32(newCommit))
+		// assume these entries can be successfully applied.
+		logs.rf.log("Update LCI to %d", newCommit)
+		logs.rf.persistState()
+	}
+}
+
+// return 0, false if the index is less than LII.
+func (logs *Logs) tryIndexLogTerm(idx int) (int, bool) {
 	logs.RLock()
 	defer logs.RUnlock()
-	return len(logs.entries)-1
+
+	switch {
+	case logs.snapshot != nil && idx == logs.snapshot.LastIncludeIndex:
+		return logs.snapshot.LastIncludeTerm, true
+
+	case idx < logs.offset || idx > logs.LLI():
+		return 0, false
+
+	}
+	return logs.entries[idx - logs.offset].Term, true
+}
+
+func (logs *Logs) indexLogTermNoLock(idx int) int {
+	switch {
+	case idx < 0 || idx > logs.LLI():
+		return -1
+	case logs.snapshot != nil && idx < logs.snapshot.LastIncludeIndex:
+		logs.rf.fatal("index log term less than snapshot last log index: %d < %d", idx, logs.snapshot.LastIncludeIndex)
+	case logs.snapshot != nil && idx == logs.snapshot.LastIncludeIndex:
+		return logs.snapshot.LastIncludeTerm
+
+	default:
+		return logs.entries[idx - logs.offset].Term
+	}
+
+	// should not reach here.
+	assert(false)
+	return -1
 }
 
 func (logs *Logs) indexLogTerm(idx int) int {
 	logs.RLock()
 	defer logs.RUnlock()
-
-	if idx < 0 || idx >= len(logs.entries) {
-		return -1
-	} else {
-		return logs.entries[idx].Term
-	}
+	return logs.indexLogTermNoLock(idx)
 }
 
-func (logs *Logs) indexLogEntry(idx int) *LogEntry {
-	logs.RLock()
-	defer logs.RUnlock()
-	return logs.entries[idx]
-}
+func (logs *Logs) pushEntry(et LogEntry) int {
+	newLLI := logs.LLI() + 1
+	switch et.CommandIndex {
+	case NOOP_INDEX:
+		logs.noopCount++
 
-func (logs *Logs) lastCommitedLogIndex() int {
-	return int(logs.lastCommitedIndex.Load())
-}
-
-func (logs *Logs) lastCommitedLogTerm() int {
-	logs.RLock()
-	defer logs.RUnlock()
-	idx := logs.lastLogIndex()
-	return logs.indexLogTerm(idx)
-}
-
-// return the index, term of the last log.
-func (logs *Logs) lastCommitedLogInfo() (int, int) {
-	logs.RLock()
-	defer logs.RUnlock()
-	idx := int(logs.lastCommitedIndex.Load())
-	return idx, logs.indexLogTerm(idx)
-}
-
-// return the index of this command and the index of this log.
-func (logs *Logs) appendEntry(et *LogEntry) (int, int) {
-	logs.Lock()
-	defer logs.Unlock()
-	logs.entries = append(logs.entries, et)
-	logIndex := len(logs.entries)-1
-
-	switch et.Content.(type) {
-	case NoopEntry:
-		return -1, logIndex
 	default:
-		logs.entryCount++
-		return logs.entryCount, logIndex
+		logs.rf.log("logs.noopCount = %d", logs.noopCount)
+		et.CommandIndex = newLLI - logs.noopCount + 1
 	}
+
+	logs.entries = append(logs.entries, et)
+	logs.lli.Store(int32(newLLI))
+
+	return et.CommandIndex
 }
 
-func (logs *Logs) removeUncommitedTail() {
-	logs.Lock()
-	defer logs.Unlock()
-	lci := int(logs.lastCommitedIndex.Load())
-	assert(lci < len(logs.entries))
-	logs.entries = logs.entries[:lci+1]
-}
-func (logs *Logs) updateCommitIndex(leaderCommit int) {
-	logs.lastCommitedIndex.Store(int32(minInt(
-		logs.lastLogIndex(), leaderCommit)))
-}
-
-func (rf *Raft) applyLogs() int {
-	// only allow one goroutine applying logs at a time.
-	logs := rf.logs
-	if !logs.applyLock.TryLock() {
-		return 0
-	}
-	defer logs.applyLock.Unlock()
-
-	ai, ci := logs.lastAppliedIndex.Load(), logs.lastCommitedIndex.Load()
-	rf.log("ai = %d, ci = %d", ai, ci)
-	assert(ai <= ci)
-	
-	logs.RLock()
-	defer logs.RUnlock()
-	for i := ai+1; i <= ci; i++ {
-		entry := logs.entries[i]
-		switch entry.Content.(type) {
-		case NoopEntry:
-			logs.rf.log("Found a NoopEntry with index %d", i)
-		default:
-			logs.applyCount++
-			logs.applyCh <- ApplyMsg {
-				CommandValid: true,
-				Command: entry.Content,
-				CommandIndex: logs.applyCount,
-			}
-			logs.rf.log("Applied ApplyMsg with index %d", logs.applyCount)
+func (logs *Logs) pushEntries(ets []LogEntry) {
+	for _, et := range ets {
+		switch et.CommandIndex {
+		case NOOP_INDEX:
+			logs.noopCount++
 		}
 	}
 
-	logs.lastAppliedIndex.Store(ci)
+	logs.entries = append(logs.entries, ets...)
+	logs.lli.Store(int32(len(logs.entries)-1 + logs.offset))
+}
+
+func (logs *Logs) followerAppendEntries(args *SendEntries) EntryStatus {
+	assert(args != nil)
+	prev, ets := args.PrevLogInfo, args.Entries
+	if prev.Index < logs.LCI() {
+		// assert(logs.entries[prev.Index+1].Term == ets[0].Term)
+		logs.rf.log("Received an entry index %d < LCI %d", prev.Index, logs.LCI())
+		return ENTRY_MATCH
+	}
+
+	lli := logs.LLI()
+	switch {
+	case prev.Index < -1:
+		logs.rf.fatal("Illegal prev index = %d", prev.Index)
+	// prev out of bounds
+	case prev.Index > lli:
+		return ENTRY_UNMATCH
+
+	case prev.Index < 0 || logs.indexLogTermNoLock(prev.Index) == prev.Term:
+		if len(ets) > 0 {
+			if prev.Index < lli {
+				logs.removeAfter(prev.Index)
+			}
+			logs.pushEntries(ets)
+			logs.rf.persistState()
+		}
+		return ENTRY_MATCH
+	}
+	return ENTRY_UNMATCH
+}
+
+func (logs *Logs) followerInstallSnapshot(snapshot *Snapshot) {
+	logs.Lock()
+	defer logs.Unlock()
+
+	logs.snapshot = snapshot
+
+	logs.entries = []LogEntry{}
+	logs.offset = snapshot.LastIncludeIndex+1
+	logs.noopCount = snapshot.NoopCount
+	logs.lli.Store(int32(snapshot.LastIncludeIndex))
+	logs.lci.Store(int32(snapshot.LastIncludeIndex))
+	logs.applier <- &ApplySnapshotEntry { snapshot }
+
+	logs.rf.persist()
+}
+
+// Leader appends an entry, return the last log index, 
+// and the last user command log index.
+func (logs *Logs) leaderAppendEntry(et LogEntry) (int, int) {
+	commandIndex := logs.pushEntry(et)
+	logs.rf.persistState()
+	return logs.LLI(), commandIndex
+}
+
+// idx not included
+func (logs *Logs) removeAfter(idx int) {
+	for _, et := range logs.entries[idx+1-logs.offset:] {
+		if et.CommandIndex == NOOP_INDEX {
+			logs.noopCount--
+		}
+	}
+	logs.entries = logs.entries[:idx+1-logs.offset]
+	logs.lli.Store(int32(len(logs.entries)-1+logs.offset))
+}
+
+// idx included
+func (logs *Logs) entriesAfter(idx int) (*Snapshot, *SendEntries) {
+	logs.RLock()
+	defer logs.RUnlock()
 	
-	return int(ci - ai)
+	if idx < logs.offset {
+		return logs.snapshot, nil
+	}
+
+	return nil, &SendEntries {
+		Entries: logs.entries[idx-logs.offset:],
+		PrevLogInfo: LogInfo {
+			Index: idx-1,
+			Term: logs.indexLogTerm(idx-1),
+		},
+	}
+}
+
+func (logs *Logs) takeSnapshot(cmdIndex int, snapshot []byte) {
+	// find the log index according to the command index.
+	// goroutines only read entries at this point, so 
+	// we don't have to acquire the write lock.
+	logIndex, noopCount := 0, 0
+	search: for i := 0; i < len(logs.entries); i++ {
+		switch logs.entries[i].CommandIndex {
+		case NOOP_INDEX:
+			noopCount++
+		case cmdIndex:
+			logIndex = i + logs.offset
+			break search
+		}
+	}
+	assert(logIndex < len(logs.entries) + logs.offset) // assert the log index can be found
+	assert(logs.entries[logIndex-logs.offset].CommandIndex == cmdIndex)
+	logs.rf.log("Found logIndex = %d", logIndex)
+
+	if logs.snapshot != nil {
+		noopCount += logs.snapshot.NoopCount
+	}
+
+	logs.Lock()
+	defer logs.Unlock()
+
+	logs.snapshot = &Snapshot {
+		Snapshot: snapshot,
+		LastIncludeIndex: logIndex,
+		LastIncludeTerm: logs.indexLogTermNoLock(logIndex),
+		LastIncludeCmdIndex: cmdIndex,
+		NoopCount: noopCount,
+	}
+
+	logs.entries = logs.entries[logIndex-logs.offset+1:]
+	logs.offset = logIndex + 1
+	logs.lai.Store(int32(logIndex))
+
+	logs.rf.persist()
+}
+
+func (logs *Logs) LCI() int {
+	return int(logs.lci.Load())
+}
+
+func (logs *Logs) LLI() int {
+	return int(logs.lli.Load())
+}
+
+func (logs *Logs) LAI() int {
+	return int(logs.lai.Load())
+}
+
+// compare if the log is as up-to-date the logs' last log.
+// Raft determines which of two logs is more up-to-date
+// by comparing the index and term of the last entries in the
+// logs. If the logs have last entries with different terms, then
+// the log with the later term is more up-to-date. If the logs
+// end with the same term, then whichever log is longer is
+// more up-to-date.
+func (logs *Logs) atLeastUpToDate(lg LogInfo) bool {
+	myLast := logs.lastLogInfo()
+
+	if myLast.Term == lg.Term {
+		return myLast.Index <= lg.Index
+	} else {
+		return myLast.Term < lg.Term
+	}
+}
+
+func (logs *Logs) lastLogInfo() LogInfo {
+	logs.RLock()
+	defer logs.RUnlock()
+
+	if len(logs.entries) == 0 {
+		if logs.snapshot == nil {
+			return LogInfo { -1, 0 }
+		} else {
+			return LogInfo {
+				Index: logs.snapshot.LastIncludeIndex,
+				Term: logs.snapshot.LastIncludeTerm,
+			}
+		}
+	} else {
+		lli := logs.LLI()
+		return LogInfo {
+			Index: lli,
+			Term: logs.entries[lli-logs.offset].Term,
+		}
+	}
 }

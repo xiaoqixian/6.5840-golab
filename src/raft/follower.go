@@ -7,55 +7,169 @@ package raft
 import (
 	"fmt"
 	"log"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
-type LeaderInfo struct {
-	id int
-	term int
-}
-
-type VoteInfo struct {
-	term int
-	id int
-}
-
 type Follower struct {
-	heartBeatTimer *time.Timer
-	leaderInfo *LeaderInfo
-	lastLogIndex int
-
 	rf *Raft
 
-	voteTo *VoteInfo
-	voteLock sync.Mutex
+	active atomic.Bool
+	
+	hbTimer *time.Timer
 }
+
 func (*Follower) role() RoleEnum { return FOLLOWER }
 
-// every node start as a Follower.
-func (flw *Follower) init() {
-	flw.setHeartBeatTimer()
-}
-func (*Follower) finish() {}
+func (flw *Follower) closed() bool { return !flw.active.Load() }
 
-func (flw *Follower) kill() {
-	flw.log("Killed")
+func (flw *Follower) activate() { 
+	if flw.active.CompareAndSwap(false, true) {
+		flw.log("Activated")
+		flw.rf.chLock.Unlock()
+		flw.tickHeartBeatTimer()
+	}
 }
 
-func (*Follower) name() string {
-	return "Follower"
+func (flw *Follower) stop() bool {
+	if flw.active.CompareAndSwap(true, false) {
+		if flw.hbTimer != nil {
+			flw.hbTimer.Stop()
+		}
+		flw.rf.chLock.Lock()
+		return true
+	} else {
+		return false
+	}
+}
+
+func (flw *Follower) process(ev Event) {
+	switch ev := ev.(type) {
+	case *GetStateEvent:
+		ev.ch <- &NodeState {
+			term: flw.rf.term,
+			isLeader: false,
+		}
+
+	case *StartCommandEvent:
+		ev.ch <- &StartCommandReply { false, -1, -1 }
+
+	case *AppendEntriesEvent:
+		flw.appendEntries(ev)
+
+	case *RequestVoteEvent:
+		flw.requestVote(ev)
+
+	case *HeartBeatTimeoutEvent:
+		flw.log("HeartBeat Timeout")
+		flw.rf.transRole(candidateFromFollower)
+
+	default:
+		flw.fatal("Unknown event type: %s", typeName(ev))
+	}
+}
+
+// Possible entry status replied:
+// 1. ENTRY_STALE, if the leader is stale.
+// 2. ENTRY_FAILUEE, if the prev log info cannot match
+// 3. ENTRY_SUCCESS, if the entry is well received.
+func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
+	defer func() { ev.ch <- true }()
+	args, reply := ev.args, ev.reply
+
+	// if args.Entry != nil {
+	// 	flw.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
+	// } else {
+	// 	flw.log("HeartBeat from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
+	// }
+	
+	if args.Term < flw.rf.term {
+		reply.EntryStatus = ENTRY_STALE
+		reply.Term = flw.rf.term
+		return
+	}
+
+	if args.Term > flw.rf.term {
+		flw.rf.setTerm(args.Term)
+	}
+	flw.tickHeartBeatTimer()
+
+	if args.Snapshot != nil {
+		flw.rf.logs.followerInstallSnapshot(args.Snapshot)
+		reply.EntryStatus = ENTRY_MATCH
+		return
+	}
+
+	reply.EntryStatus = flw.rf.logs.followerAppendEntries(args.SendEntries)
+	
+	if reply.EntryStatus == ENTRY_MATCH && args.EntryType == ENTRY_T_LOG {
+		flw.rf.log("updateCommit to %d", args.LeaderCommit)
+		flw.rf.logs.updateCommit(args.LeaderCommit)
+	}
+}
+
+// Possible requestVote reply:
+// 1. VOTE_DENIAL, if the candidate term is less than the current term.
+// 2. VOTE_OTHER, if the candidate term is at least as large as the current 
+//    term, but the last commited log index is less than the current.
+// 3. VOTE_GRANT, if the candidate has an at least as large term and 
+//    at least as large last commited index.
+func (flw *Follower) requestVote(ev *RequestVoteEvent) {
+	defer func() { ev.ch <- true }()
+	args, reply := ev.args, ev.reply
+
+	reply.VoterID = flw.rf.me
+	switch {
+	case args.Term < flw.rf.term:
+		reply.Term = flw.rf.term
+		reply.VoteStatus = VOTE_OTHER
+
+	case args.Term == flw.rf.term:
+		if args.CandidateID == flw.rf.voteFor {
+			reply.VoteStatus = VOTE_GRANTED
+			flw.log("Receive a duplicate vote request, vote granted")
+		} else {
+			reply.VoteStatus = VOTE_OTHER
+		}
+
+	case args.Term > flw.rf.term:
+		flw.rf.setTerm(args.Term)
+		if flw.rf.logs.atLeastUpToDate(args.LastLogInfo) {
+			flw.log("Grant vote to %d", args.CandidateID)
+			flw.rf.voteFor = args.CandidateID
+			reply.VoteStatus = VOTE_GRANTED
+			flw.tickHeartBeatTimer()
+		} else {
+			reply.VoteStatus = VOTE_OTHER
+		}
+	}
+}
+
+func (flw *Follower) tickHeartBeatTimer() {
+	d := genRandomDuration(HEARTBEAT_TIMEOUT...)
+	flw.log("HeartBeat timeout after %s", d)
+	if flw.hbTimer == nil || !flw.hbTimer.Reset(d) {
+		flw.hbTimer = time.AfterFunc(d, func() {
+			flw.rf.tryPutEv(&HeartBeatTimeoutEvent{}, flw)
+		})
+	}
+}
+
+func (flw *Follower) _log(f func(string, ...interface{}), format string, args ...interface{}) {
+	f("[Follower %d/%d/%d/%d/%d] %s", flw.rf.me, flw.rf.term, flw.rf.logs.LLI(), flw.rf.logs.LCI(), len(flw.rf.logs.entries), fmt.Sprintf(format, args...))
+}
+
+func (flw *Follower) log(format string, args ...interface{}) {
+	flw._log(log.Printf, format, args...)
+}
+func (flw *Follower) fatal(format string, args ...interface{}) {
+	flw._log(log.Fatalf, format, args...)
 }
 
 func followerFromCandidate(r Role) Role {
 	cd := r.(*Candidate)
-	// TODO: need more work
 	return &Follower {
 		rf: cd.rf,
-		leaderInfo: &LeaderInfo {
-			id: -1,
-			term: int(cd.term.Load()),
-		},
 	}
 }
 
@@ -63,144 +177,5 @@ func followerFromLeader(r Role) Role {
 	ld := r.(*Leader)
 	return &Follower {
 		rf: ld.rf,
-		leaderInfo: &LeaderInfo {
-			id: -1,
-			term: ld.retireInfo.term,
-		},
 	}
-}
-
-func (flw *Follower) setHeartBeatTimer() {
-	d := genRandomDuration(HEARTBEAT_TIMEOUT...)
-	flw.log("Heartbeat timeout duration: %s", d)
-	if flw.heartBeatTimer == nil || 
-		!flw.heartBeatTimer.Reset(d) {
-		flw.heartBeatTimer = time.AfterFunc(d, func() {
-			flw.log("Heartbeat timeout")
-			flw.rf.transRole(candidateFromFollower)
-		})
-	}
-}
-
-func (flw *Follower) resetHeartBeatTimer(rg ...int) {
-	d := genRandomDuration(rg...)
-	if flw.heartBeatTimer != nil && flw.heartBeatTimer.Reset(d) {
-		flw.log("Reset Heartbeat timeout duration: %s", d)
-	}
-}
-
-// RequestVote can cause the heartBeatTimer reset.
-func (flw *Follower) requestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	flw.log("Receive RequestVote from %d", args.CandidateID)
-
-	flw.voteLock.Lock()
-	defer flw.voteLock.Unlock()
-
-	rf := flw.rf
-	voteTo := flw.voteTo
-
-	reply.VoterID = rf.me
-
-	if voteTo == nil || voteTo.term < args.Term {
-		if args.LastLogIndex >= int(rf.logs.lastCommitedIndex.Load()) &&
-			args.Term > flw.leaderInfo.term {
-			voteTo = &VoteInfo {
-				term: args.Term,
-				id: args.CandidateID,
-			}
-			reply.VoteStatus = VOTE_GRANTED
-
-			flw.resetHeartBeatTimer(LEADER_INIT_HEARTBEAT_TIMEOUT...)
-			flw.updateLeader(args.CandidateID, args.Term)
-
-			flw.log("Grant vote to %d", args.CandidateID)
-		} else {
-			reply.VoteStatus = VOTE_DENIAL
-			reply.Term = flw.leaderInfo.term
-			flw.log("Vote request from %d denialed cause of stale logs", args.CandidateID)
-		}
-	} else {
-		reply.VoteStatus = VOTE_OTHER
-		reply.Term = voteTo.term
-		flw.log("Reject %d, already voted to %d", args.CandidateID, voteTo.id)
-	}
-
-	flw.voteTo = voteTo
-}
-
-func (flw *Follower) leaderValid(args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	if args.Term < flw.leaderInfo.term {
-		reply.Term = flw.leaderInfo.term
-		reply.Success = false
-		return false
-	}
-	return true
-}
-
-func (flw *Follower) appendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-
-	if !flw.leaderValid(args, reply) { return }
-
-	flw.resetHeartBeatTimer(HEARTBEAT_TIMEOUT...)
-
-	// leader changed
-	if args.Term > flw.leaderInfo.term {
-		flw.updateLeader(args.Id, args.Term)
-	}
-
-	// heartBeat message
-	// if len(args.Entries) == 0 { return }
-	
-	rf := flw.rf
-
-	// heartBeat message
-	if args.Entries == nil {
-		flw.log("Receive HeartBeat from [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.LeaderCommit)
-
-		rf.logs.lastCommitedIndex.Store(int32(minInt(rf.logs.lastLogIndex(), args.LeaderCommit)))
-		flw.log("HeartBeat: Update last commit index to %d", rf.logs.lastCommitedIndex.Load())
-		go rf.applyLogs()
-		
-		return
-	}
-
-	flw.log("Receive AppendEntries request from [%d/%d], prev log info [%d/%d], LeaderCommit = %d.", args.Id, args.Term, args.PrevLogIndex, args.PrevLogTerm, args.LeaderCommit)
-
-	// Update LeaderCommit in advance, so the prev log index can match.
-	rf.logs.updateCommitIndex(args.LeaderCommit)
-	flw.log("Before: Update last commit index to %d", rf.logs.lastCommitedIndex.Load())
-
-	lastCommitedIndex, lastCommitedTerm := rf.logs.lastCommitedLogInfo()
-
-	if lastCommitedIndex > args.PrevLogIndex {
-
-		flwPrevLogTerm := rf.logs.indexLogTerm(args.PrevLogIndex)
-		reply.Success = flwPrevLogTerm == args.PrevLogTerm
-		flw.log("Receive leader old entry [%d/%d], flwPrevLogTerm = %d", args.PrevLogIndex, args.PrevLogTerm, flwPrevLogTerm)
-
-	} else if lastCommitedIndex == args.PrevLogIndex && 
-	lastCommitedTerm == args.PrevLogTerm {
-
-		reply.Success = true
-		rf.logs.appendEntry(args.Entries)
-		rf.logs.updateCommitIndex(args.LeaderCommit)
-		flw.log("After: Update last commit index to %d", rf.logs.lastCommitedIndex.Load())
-
-		go rf.applyLogs()
-
-	} else {
-		reply.Success = false
-		flw.log("Leader [%d/%d] does not match follower [%d/%d]", args.PrevLogIndex, args.PrevLogTerm, lastCommitedIndex, lastCommitedTerm)
-	}
-
-}
-
-func (flw *Follower) updateLeader(id int, term int) {
-	flw.log("Update leader to [%d/%d]", id, term)
-	flw.leaderInfo.id = id
-	flw.leaderInfo.term = term
-}
-
-func (flw *Follower) log(format string, args ...interface{}) {
-	log.Printf("[Follower %d/%d/%d] %s\n", flw.rf.me, flw.leaderInfo.term, flw.rf.logs.lastCommitedIndex.Load(), fmt.Sprintf(format, args...))
 }

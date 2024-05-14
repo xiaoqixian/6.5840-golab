@@ -111,6 +111,9 @@ func TestManyElections3A(t *testing.T) {
 		cfg.disconnect(i1)
 		cfg.disconnect(i2)
 		cfg.disconnect(i3)
+		tlog("%d disconnected", i1)
+		tlog("%d disconnected", i2)
+		tlog("%d disconnected", i3)
 
 		// either the current leader should still be alive,
 		// or the remaining four should elect a new one.
@@ -119,6 +122,9 @@ func TestManyElections3A(t *testing.T) {
 		cfg.connect(i1)
 		cfg.connect(i2)
 		cfg.connect(i3)
+		tlog("%d connected", i1)
+		tlog("%d connected", i2)
+		tlog("%d connected", i3)
 	}
 
 	cfg.checkOneLeader()
@@ -241,6 +247,7 @@ func TestLeaderFailure3B(t *testing.T) {
 	// disconnect the first leader.
 	leader1 := cfg.checkOneLeader()
 	cfg.disconnect(leader1)
+	tlog("Disconnected leader1 %d", leader1)
 
 	// the remaining followers should elect
 	// a new leader.
@@ -251,6 +258,7 @@ func TestLeaderFailure3B(t *testing.T) {
 	// disconnect the new leader.
 	leader2 := cfg.checkOneLeader()
 	cfg.disconnect(leader2)
+	tlog("Disconnected leader2 %d", leader2)
 
 	// submit a command to each server.
 	for i := 0; i < servers; i++ {
@@ -486,6 +494,7 @@ func TestRejoin3B(t *testing.T) {
 	// leader network failure
 	leader1 := cfg.checkOneLeader()
 	cfg.disconnect(leader1)
+	tlog("leader1 %d disconnected", leader1)
 
 	// make old leader try to agree on some entries
 	cfg.rafts[leader1].Start(102)
@@ -498,14 +507,17 @@ func TestRejoin3B(t *testing.T) {
 	// new leader network failure
 	leader2 := cfg.checkOneLeader()
 	cfg.disconnect(leader2)
+	tlog("leader2 %d disconnected", leader2)
 
 	// old leader connected again
 	cfg.connect(leader1)
+	tlog("leader1 %d reconnected", leader1)
 
 	cfg.one(104, 2, true)
 
 	// all together now
 	cfg.connect(leader2)
+	tlog("leader2 %d reconnected", leader2)
 
 	cfg.one(105, servers, true)
 
@@ -749,36 +761,49 @@ func TestPersist23C(t *testing.T) {
 
 	index := 1
 	for iters := 0; iters < 5; iters++ {
-		cfg.one(10+index, servers, true)
+		tlog("Round %d", iters)
+
+		cfg.one(10*(iters+1)+index, servers, true)
 		index++
 
 		leader1 := cfg.checkOneLeader()
+		tlog("leader1 = %d", leader1)
 
 		cfg.disconnect((leader1 + 1) % servers)
 		cfg.disconnect((leader1 + 2) % servers)
+		tlog("disconnected %d", (leader1 + 1) % servers)
+		tlog("disconnected %d", (leader1 + 2) % servers)
 
-		cfg.one(10+index, servers-2, true)
+		cfg.one(10*(iters+1)+index, servers-2, true)
 		index++
 
 		cfg.disconnect((leader1 + 0) % servers)
 		cfg.disconnect((leader1 + 3) % servers)
 		cfg.disconnect((leader1 + 4) % servers)
+		tlog("disconnected leader %d", (leader1 + 0) % servers)
+		tlog("disconnected %d", (leader1 + 3) % servers)
+		tlog("disconnected %d", (leader1 + 4) % servers)
 
 		cfg.start1((leader1+1)%servers, cfg.applier)
 		cfg.start1((leader1+2)%servers, cfg.applier)
 		cfg.connect((leader1 + 1) % servers)
 		cfg.connect((leader1 + 2) % servers)
+		tlog("restart and connected %d", (leader1 + 1) % servers)
+		tlog("restart and connected %d", (leader1 + 2) % servers)
 
 		time.Sleep(RaftElectionTimeout)
 
 		cfg.start1((leader1+3)%servers, cfg.applier)
 		cfg.connect((leader1 + 3) % servers)
+		tlog("restart and connected %d, it should be elected", (leader1 + 3) % servers)
 
-		cfg.one(10+index, servers-2, true)
+		cfg.one(10*(iters+1)+index, servers-2, true)
 		index++
 
 		cfg.connect((leader1 + 4) % servers)
 		cfg.connect((leader1 + 0) % servers)
+		tlog("connected %d", (leader1 + 4) % servers)
+		tlog("connected %d", (leader1 + 0) % servers)
 	}
 
 	cfg.one(1000, servers, true)
@@ -920,28 +945,44 @@ func TestFigure8Unreliable3C(t *testing.T) {
 
 	nup := servers
 	for iters := 0; iters < 1000; iters++ {
+		log.Printf("\n=====================================\n\n")
+		tlog("Round %d", iters)
+		var alives []int
+		for s := 0; s < servers; s++ {
+			if cfg.connected[s] {
+				alives = append(alives, s)
+			}
+		}
+		log.Println("Alive nodes: ", alives)
+
 		if iters == 200 {
 			cfg.setlongreordering(true)
+			tlog("setlongreordering")
 		}
 		leader := -1
 		for i := 0; i < servers; i++ {
-			_, _, ok := cfg.rafts[i].Start(rand.Int() % 10000)
+			cmd := rand.Int() % 10000
+			cmdIndex, cmdTerm, ok := cfg.rafts[i].Start(cmd)
 			if ok && cfg.connected[i] {
 				leader = i
+				tlog("Start command %d on leader %d with [%d/%d]", cmd, i, cmdIndex, cmdTerm)
 			}
 		}
 
 		if (rand.Int() % 1000) < 100 {
 			ms := rand.Int63() % (int64(RaftElectionTimeout/time.Millisecond) / 2)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
+			tlog("Sleep for %s", time.Duration(ms) * time.Millisecond)
 		} else {
 			ms := (rand.Int63() % 13)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
+			tlog("Sleep for %s", time.Duration(ms) * time.Millisecond)
 		}
 
 		if leader != -1 && (rand.Int()%1000) < int(RaftElectionTimeout/time.Millisecond)/2 {
 			cfg.disconnect(leader)
 			nup -= 1
+			tlog("Disconnect leader %d", leader)
 		}
 
 		if nup < 3 {
@@ -949,6 +990,7 @@ func TestFigure8Unreliable3C(t *testing.T) {
 			if cfg.connected[s] == false {
 				cfg.connect(s)
 				nup += 1
+				tlog("Pull up a random node %d", s)
 			}
 		}
 	}
@@ -956,6 +998,7 @@ func TestFigure8Unreliable3C(t *testing.T) {
 	for i := 0; i < servers; i++ {
 		if cfg.connected[i] == false {
 			cfg.connect(i)
+			tlog("Connected %d", i)
 		}
 	}
 
@@ -1129,21 +1172,26 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 
 	cfg.one(rand.Int(), servers, true)
 	leader1 := cfg.checkOneLeader()
+	tlog("leader1 = %d", leader1)
 
 	for i := 0; i < iters; i++ {
+		tlog("\n=============================\n\niter = %d\n", i)
 		victim := (leader1 + 1) % servers
 		sender := leader1
 		if i%3 == 1 {
 			sender = (leader1 + 1) % servers
 			victim = leader1
 		}
+		tlog("victim = %d, sender = %d\n", victim, sender)
 
 		if disconnect {
 			cfg.disconnect(victim)
+			tlog("victim %d disconnected", victim)
 			cfg.one(rand.Int(), servers-1, true)
 		}
 		if crash {
 			cfg.crash1(victim)
+			tlog("victim %d crashed", victim)
 			cfg.one(rand.Int(), servers-1, true)
 		}
 
@@ -1154,7 +1202,7 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 		}
 
 		// let applier threads catch up with the Start()'s
-		if disconnect == false && crash == false {
+		if !disconnect && !crash {
 			// make sure all followers have caught up, so that
 			// an InstallSnapshot RPC isn't required for
 			// TestSnapshotBasic3D().
@@ -1170,12 +1218,14 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 			// reconnect a follower, who maybe behind and
 			// needs to rceive a snapshot to catch up.
 			cfg.connect(victim)
+			tlog("victim %d connected", victim)
 			cfg.one(rand.Int(), servers, true)
 			leader1 = cfg.checkOneLeader()
 		}
 		if crash {
 			cfg.start1(victim, cfg.applierSnap)
 			cfg.connect(victim)
+			tlog("victim %d started and connected", victim)
 			cfg.one(rand.Int(), servers, true)
 			leader1 = cfg.checkOneLeader()
 		}

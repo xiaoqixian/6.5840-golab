@@ -4,22 +4,31 @@
 
 package raft
 
+type SendEntries struct {
+	Entries []LogEntry
+	PrevLogInfo LogInfo
+}
+
 type AppendEntriesArgs struct {
 	Id int
 	Term int
 
-	PrevLogIndex int
-	PrevLogTerm int
-
 	LeaderCommit int
 
-	Entries *LogEntry
+	EntryType EntryType
+
+	// If Snapshot != nil, this is a snapshot AppendEntries RPC.
+	Snapshot *Snapshot
+	SendEntries *SendEntries
 }
 
 type AppendEntriesReply struct {
-	Success bool
-	Term int // for leader to update itself.
-	Received bool // indicate that the follower confirm this RPC.
+	EntryStatus EntryStatus
+	// for leader to update itself.
+	Term int
+	// indicate that the RPC request is explicitly 
+	// processed by the remote.
+	Responsed bool
 }
 
 // example RequestVote RPC arguments structure.
@@ -28,8 +37,7 @@ type RequestVoteArgs struct {
 	// Your data here (3A, 3B).
 	Term int
 	CandidateID int
-	LastLogIndex int
-	LastLogTerm int
+	LastLogInfo LogInfo
 }
 
 type NoopEntry struct {}
@@ -40,4 +48,15 @@ type RequestVoteReply struct {
 	Term int // for candidate to update itself
 	VoterID int
 	VoteStatus VoteStatus
+	Responsed bool
+}
+
+type InstallSnapshotArgs struct {
+	LastIncludeIndex int
+	Snapshot []byte
+}
+
+type InstallSnapshotReply struct {
+	Responsed bool
+	Hold bool
 }

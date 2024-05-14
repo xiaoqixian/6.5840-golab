@@ -7,62 +7,22 @@ package raft
 import (
 	"fmt"
 	"log"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"6.5840/labrpc"
 )
 
-type CandidateStatus uint8
-const (
-	POLLING CandidateStatus = iota
-	ELECTED
-	DEFEATED
-	POLL_TIMEOUT
-	CANDIDATE_KILLED
-
-	POLL_UPDATING
-	POLL_WAITING
-	POLL_NEW_ROUND
-)
-
-func candidateStatusToString(s CandidateStatus) string {
-	switch s {
-	case POLLING:
-		return "POLLING"
-	case ELECTED:
-		return "ELECTED"
-	case DEFEATED:
-		return "DEFEATED"
-	case POLL_TIMEOUT:
-		return "POLL_TIMEOUT"
-	case CANDIDATE_KILLED:
-		return "CANDIDATE_KILLED"
-	case POLL_UPDATING:
-		return "POLL_UPDATING"
-	case POLL_WAITING:
-		return "POLL_WAITING"
-	case POLL_NEW_ROUND:
-		return "POLL_NEW_ROUND"
-	default:
-		return fmt.Sprintf("Unknown %d", s)
-	}
-}
-
 type VoteStatus uint8
 const (
 	VOTE_DEFAULT VoteStatus = iota
-	// VOTE_DENIAL is given by leader with at least as large term,
-	// the candidate should quit election on receiving this vote.
-	VOTE_DENIAL
-	VOTE_GRANTED
-	//  VOTE_OTHER is given by follower who has given its vote to a 
-	// candidate with at least as large term.
 	VOTE_OTHER
+	VOTE_GRANTED
+	VOTE_DENIAL
 )
 
 type Candidate struct {
+<<<<<<< HEAD
 	term int
 	termLock sync.RWMutex
 	receivedVotes atomic.Uint32
@@ -79,45 +39,30 @@ type Candidate struct {
 
 	reelectTimer *time.Timer
 
+=======
+>>>>>>> msg-queue
 	rf *Raft
+	votes int
+	voters []bool
+
+	active atomic.Bool
+
+	elecTimer *time.Timer
 }
 
 func (*Candidate) role() RoleEnum { return CANDIDATE }
 
-func (cd *Candidate) init() {
-	go cd.startElection()
-}
-func (*Candidate) finish() {}
+func (cd *Candidate) closed() bool { return !cd.active.Load() }
 
-func (cd *Candidate) kill() {
-	cd.status.Store(CANDIDATE_KILLED)
-	cd.log("Killed")
-}
-
-func (*Candidate) name() string {
-	return "Candidate"
-}
-
-func (cd *Candidate) statusName() string {
-	return candidateStatusToString(cd.status.Load().(CandidateStatus))
-}
-
-func (cd *Candidate) setReelectTimer() {
-	d := genRandomDuration(ELECTION_TIMEOUT_WAITING_DURATION...)
-	cd.log("Election timeout, reelect after %s", d)
-	if cd.reelectTimer == nil || !cd.reelectTimer.Reset(d) {
-		cd.reelectTimer = time.AfterFunc(d, func() {
-			cd.status.CompareAndSwap(POLL_WAITING, POLL_NEW_ROUND)
-		})
+func (cd *Candidate) activate() { 
+	if cd.active.CompareAndSwap(false, true) {
+		cd.startElection()
+		cd.rf.chLock.Unlock()
+		cd.log("Activated")
 	}
-} 
-
-func (cd *Candidate) breakElection(s CandidateStatus) bool {
-	return cd.status.CompareAndSwap(POLLING, s) ||
-		cd.status.CompareAndSwap(POLL_WAITING, s) ||
-		cd.status.CompareAndSwap(POLL_NEW_ROUND, s)
 }
 
+<<<<<<< HEAD
 func (cd *Candidate) waitUpdate() {
 	for cd.status.Load() == POLL_UPDATING {}
 }
@@ -134,21 +79,90 @@ func (cd *Candidate) requestVote(args *RequestVoteArgs, reply *RequestVoteReply)
 		// cd.status.CompareAndSwap(POLLING, DEFEATED)
 		cd.breakElection(DEFEATED)
 		reply.VoteStatus = VOTE_GRANTED
+=======
+func (cd *Candidate) stop() bool {
+	if cd.active.CompareAndSwap(true, false) {
+		if cd.elecTimer != nil {
+			cd.elecTimer.Stop()
+		}
+		cd.rf.chLock.Lock()
+		cd.log("Stopped")
+		return true
+>>>>>>> msg-queue
 	} else {
-		reply.VoteStatus = VOTE_OTHER
-		reply.Term = term
+		return false
+	}
+}
+
+func (cd *Candidate) process(ev Event) {
+	switch ev := ev.(type) {
+	case *GetStateEvent:
+		ev.ch <- &NodeState {
+			term: cd.rf.Term(),
+			isLeader: false,
+		}
+
+	case *StartCommandEvent:
+		ev.ch <- &StartCommandReply { false, -1, -1 }
+
+	case *AppendEntriesEvent:
+		cd.appendEntries(ev)
+
+	case *RequestVoteEvent:
+		cd.requestVote(ev)
+
+	case *VoteGrantEvent:
+		cd.auditVote(ev)
+
+	case *ElectionTimeoutEvent:
+		cd.rf.transRole(followerFromCandidate)
+
+	case *StaleCandidateEvent:
+		if ev.newTerm > cd.rf.term {
+			cd.rf.setTerm(ev.newTerm)
+		}
+		cd.rf.transRole(followerFromCandidate)
+
+	default:
+		cd.log("Unknown event %s", typeName(ev))
+	}
+
+}
+
+func (cd *Candidate) _log(f func(string, ...interface{}), format string, args ...interface{}) {
+	f("[Candidate %d/%d/%d/%d] %s", cd.rf.me, cd.rf.term, cd.rf.logs.LLI(), cd.rf.logs.LCI(), fmt.Sprintf(format, args...))
+}
+
+func (cd *Candidate) log(format string, args ...interface{}) {
+	cd._log(log.Printf, format, args...)
+}
+func (cd *Candidate) fatal(format string, args ...interface{}) {
+	cd._log(log.Fatalf, format, args...)
+}
+
+func (cd *Candidate) setElecTimer() {
+	d := genRandomDuration(ELECTION_TIMEOUT...)
+	cd.log("Election timeout after %s", d)
+	rf := cd.rf
+	if cd.elecTimer == nil || cd.elecTimer.Reset(d) {
+		cd.elecTimer = time.AfterFunc(d, func() {
+			rf.tryPutEv(&ElectionTimeoutEvent{}, cd)
+		})
 	}
 }
 
 func (cd *Candidate) startElection() {
-	cd.log("Start election")
 	rf := cd.rf
-	
+	cd.rf.setTerm(cd.rf.term+1)
+	cd.votes = 1
+	cd.voters = make([]bool, len(rf.peers))
+
 	args := &RequestVoteArgs {
+		Term: cd.rf.term,
 		CandidateID: rf.me,
-		LastLogIndex: rf.logs.lastCommitedLogIndex(),
-		LastLogTerm: rf.logs.lastCommitedLogTerm(),
+		LastLogInfo: rf.logs.lastLogInfo(),
 	}
+<<<<<<< HEAD
 	cd.log("Election info: last commit index = %d, last commit term = %d", args.LastLogIndex, args.LastLogTerm)
 	
 	election: for {
@@ -230,15 +244,58 @@ func (cd *Candidate) startElection() {
 
 			default:
 				cd.fatalf("Unknown status: %d", cd.status.Load().(CandidateStatus))
+=======
+	for i, peer := range rf.peers {
+		if i == rf.me { continue }
+		
+		go func(peer *labrpc.ClientEnd, id int, term int, rf *Raft) {
+			cd.log("Request vote from %d", id)
+			reply := &RequestVoteReply {}
+
+			ok := peer.Call("Raft.RequestVote", args, reply)
+
+			for tries := RPC_CALL_TRY_TIMES;
+				cd.active.Load() && (!ok || !reply.Responsed) && tries > 0;
+				tries-- {
+				time.Sleep(RPC_FAIL_WAITING)
+				ok = peer.Call("Raft.RequestVote", args, reply)
+>>>>>>> msg-queue
 			}
-		}
+
+			if !cd.active.Load() { return }
+			
+			if ok && reply.Responsed {
+				switch reply.VoteStatus {
+				case VOTE_GRANTED:
+					rf.tryPutEv(&VoteGrantEvent {
+						term: term,
+						voter: reply.VoterID,
+					}, cd)
+
+				case VOTE_OTHER:
+					if reply.Term > cd.rf.term {
+						rf.tryPutEv(&StaleCandidateEvent{reply.Term}, cd)
+					}
+					
+				case VOTE_DENIAL:
+					rf.tryPutEv(&StaleCandidateEvent{cd.rf.term}, cd)
+
+				case VOTE_DEFAULT:
+					cd.fatal("Unprocessed vote request from %d", reply.VoterID)
+				}
+
+			}
+		}(peer, i, cd.rf.term, cd.rf)
 	}
+
+	cd.setElecTimer()
 }
 
 func candidateFromFollower(r Role) Role {
 	flw := r.(*Follower)
-	cd := &Candidate {
+	return &Candidate {
 		rf: flw.rf,
+<<<<<<< HEAD
 		voters: make([]bool, len(flw.rf.peers)),
 		VOTES_TO_WIN: uint32(len(flw.rf.peers)/2),
 		term: flw.term,
@@ -254,84 +311,70 @@ func (cd *Candidate) setElectionTimer() {
 		cd.electionTimer = time.AfterFunc(d, func() {
 			cd.status.CompareAndSwap(POLLING, POLL_TIMEOUT)
 		})
+=======
+>>>>>>> msg-queue
 	}
 }
 
-func (cd *Candidate) winElection() {
-	cd.log("Wins election")
-	cd.rf.transRole(leaderFromCandidate)
+func (cd *Candidate) appendEntries(ev *AppendEntriesEvent) {
+	defer func() { ev.ch <- true }()
+	args, reply := ev.args, ev.reply
+	
+	switch {
+	case args.Term >= cd.rf.term:
+		reply.EntryStatus = ENTRY_HOLD
+		if args.Term > cd.rf.term {
+			cd.rf.setTerm(args.Term)
+		}
+		cd.rf.transRole(followerFromCandidate)
+
+	case args.Term < cd.rf.term:
+		reply.EntryStatus = ENTRY_STALE
+		reply.Term = cd.rf.term
+	}
 }
 
-func (cd *Candidate) electionFallback() {
-	cd.log("Lost election")
-	cd.rf.transRole(followerFromCandidate)
-}
+func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
+	defer func() { ev.ch <- true }()
+	args, reply := ev.args, ev.reply
 
-// return true to abort vote requesting
-func (cd *Candidate) auditVote(reply *RequestVoteReply) {
-	switch reply.VoteStatus {
-	case VOTE_GRANTED:
-		cd.log("Vote granted by %d", reply.VoterID)
+	switch {
+	case args.Term < cd.rf.term:
+		reply.VoteStatus = VOTE_OTHER // which is myself.
+		reply.Term = cd.rf.term
 
-		cd.auditLock.Lock()
-		defer cd.auditLock.Unlock()
-		
-		if cd.voters[reply.VoterID] { return }
-		if cd.receivedVotes.Add(1) >= cd.VOTES_TO_WIN {
-			// cd.status.CompareAndSwap(POLLING, ELECTED)
-			cd.breakElection(ELECTED)
-		}
-		cd.voters[reply.VoterID] = true
-
-	case VOTE_OTHER:
-		if reply.Term > int(cd.term.Load()) {
-			cd.log("Defeated by other node with term %d", reply.Term)
-			cd.term.Store(int32(reply.Term))
-			// cd.status.CompareAndSwap(POLLING, DEFEATED)
-			cd.breakElection(DEFEATED)
-		}
-
-	case VOTE_DENIAL:
-		if reply.Term >= int(cd.term.Load()) {
-			cd.log("Vote denied by %d with term %d", reply.VoterID, reply.Term)
-			cd.term.Store(int32(reply.Term))
-			// cd.status.CompareAndSwap(POLLING, DEFEATED)
-			cd.breakElection(DEFEATED)
+	case args.Term == cd.rf.term:
+		assert(cd.rf.voteFor == -1)
+		reply.Term = args.Term
+		if args.CandidateID == cd.rf.voteFor {
+			reply.VoteStatus = VOTE_GRANTED
+		} else {
+			reply.VoteStatus = VOTE_OTHER
 		}
 
-	default:
-		log.Fatalf("Unprocessed VoteStatus = %d", reply.VoteStatus)
+	case args.Term > cd.rf.term:
+		cd.log("Fallback to follower")
+		cd.rf.setTerm(args.Term)
+		cd.rf.transRole(followerFromCandidate)
+
+		if cd.rf.logs.atLeastUpToDate(args.LastLogInfo) {
+			reply.VoteStatus = VOTE_GRANTED
+			cd.rf.voteFor = args.CandidateID
+			cd.log("Grant Vote to %d", args.CandidateID)
+		} else {
+			reply.VoteStatus = VOTE_OTHER
+		}
 	}
 }
 
-// If the leader is valid, this RPC call will triger the abortion
-// of the election, but the candidate will not handle the log entries 
-// for the follower. 
-// So the transformed follower may receive the same RPC call after 
-// the leader has an AppendEntries timeout.
-func (cd *Candidate) appendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	if args.Entries == nil {
-		cd.log("Receive HeartBeat from [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.LeaderCommit)
-	} else {
-		cd.log("Receive AppendEntries request from [%d/%d], prev log info [%d/%d], LeaderCommit = %d.", args.Id, args.Term, args.PrevLogIndex, args.PrevLogTerm, args.LeaderCommit)
+func (cd *Candidate) auditVote(ev *VoteGrantEvent) {
+	if cd.rf.term == ev.term && !cd.voters[ev.voter] {
+		cd.voters[ev.voter] = true
+		cd.votes++
+
+		if cd.votes >= cd.rf.majorN {
+			cd.log("Elected")
+			cd.rf.transRole(leaderFromCandidate)
+		}
 	}
-
-	if args.Term >= int(cd.term.Load()) {
-		cd.log("Defeated by leader [%d/%d]", args.Id, args.Term)
-		// cd.status.CompareAndSwap(POLLING, DEFEATED)
-		cd.breakElection(DEFEATED)
-		cd.log("Status: %s", candidateStatusToString(cd.status.Load().(CandidateStatus)))
-	} else {
-		cd.log("Inform [%d/%d] is a stale leader", args.Id, args.Term)
-		reply.Term = int(cd.term.Load())
-	}
-}
-
-func (cd *Candidate) log(format string, args ...interface{}) {
-	log.Printf("[Candidate %d/%d/%d] %s\n", cd.rf.me, cd.term.Load(), cd.rf.logs.lastCommitedIndex.Load(), fmt.Sprintf(format, args...))
-	// log.Printf("[Candidate %d/%d] " + format + "\n", cd.rf.me, cd.term.Load())
-}
-
-func (cd *Candidate) fatalf(format string, args ...interface{}) {
-	log.Fatalf("[Candidate %d/%d/%d] %s\n", cd.rf.me, cd.term.Load(), cd.rf.logs.lastCommitedIndex.Load(), fmt.Sprintf(format, args...))
 }

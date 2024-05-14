@@ -19,14 +19,19 @@ package raft
 
 import (
 	//	"bytes"
+	// "bytes"
+	"bytes"
 	"encoding/gob"
+	"io"
 	"log"
 	"math/rand"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	//	"6.5840/labgob"
+	// "6.5840/labgob"
 	"6.5840/labrpc"
 )
 
@@ -62,20 +67,23 @@ const (
 type Role interface {
 	role() RoleEnum
 
-	// This is supposed to be a short function
-	// as the roleLock is locked the whole time 
-	// during this function execution.
-	// So if you need to run a long time task, 
-	// use goroutine.
-	init()
-	finish()
-	kill()
-	name() string
+	closed() bool
+	activate()
+	process(Event)
 
-	requestVote(*RequestVoteArgs, *RequestVoteReply)
-	appendEntries(*AppendEntriesArgs, *AppendEntriesReply)
+	// return false if the role is already stopped.
+	stop() bool
 
 	log(string, ...interface{})
+	fatal(string, ...interface{})
+}
+
+type Snapshot struct {
+	Snapshot []byte
+	LastIncludeIndex int
+	LastIncludeTerm int
+	LastIncludeCmdIndex int
+	NoopCount int
 }
 
 // A Go object implementing a single Raft peer.
@@ -84,75 +92,63 @@ type Raft struct {
 	persister *Persister          // Object to hold this peer's persisted state
 	me        int                 // this peer's index into peers[]
 	dead      atomic.Bool
+	majorN    int
+
+	term int
+	voteFor int
+
+	role Role
+
+	logs *Logs
 
 	applyCh chan ApplyMsg
 
-	role Role
-	roleLock sync.RWMutex
+	evCh chan Event
+	// the chLock is only used by goroutines, cause they don't 
+	// know if they could push events to the channel.
+	// the chLock is write locked until the role is activated, 
+	// and relocked when the role is stopped again.
+	chLock sync.RWMutex
 
-	logs *Logs
+	saveLock sync.Mutex
 }
 
-func (rf *Raft) transRole(f func(Role) Role) {
-	rf.role.finish()
+func (rf *Raft) Term() int {
+	return rf.term
+}
 
-	rf.roleLock.Lock()
-	defer rf.roleLock.Unlock()
-	
-	_old_name := rf.role.name()
-	rf.role = f(rf.role)
-	log.Printf("[Raft %d] Trans role from %s to %s", rf.me, _old_name, rf.role.name())
-	rf.role.init()
+func (rf *Raft) setTerm(term int) {
+	// make sure the term increase monotonically.
+	if term <= rf.term {
+		_, file, line, ok := runtime.Caller(1)
+		if ok {
+			rf.fatal("[%s/%d] term %d <= rf.term %d", file, line, term, rf.term)
+		} else {
+			rf.fatal("term <= rf.term")
+		}
+	}
+	rf.term = term
+	// erase voteFor information everytime the term is modified.
+	rf.voteFor = -1
+	rf.persistState()
 }
 
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-	rf.roleLock.RLock()
-	defer rf.roleLock.RUnlock()
-
-	switch role := rf.role.(type) {
-	case *Follower:
-		if role.leaderInfo == nil {
-			return -1, false
-		} else {
-			return role.leaderInfo.term, false
+	if !rf.dead.Load() {
+		ch := make(chan *NodeState, 1)
+		var state *NodeState
+		for ; state == nil; state = <- ch {
+			// rf.chLock.RLock()
+			rf.evCh <- &GetStateEvent {
+				ch: ch,
+			}
+			// rf.chLock.RUnlock()
 		}
-		
-	case *Candidate:
-		return int(role.term.Load()), false
-
-	case *Leader:
-		return role.term, true
-
-	default:
-		return -1, false
+		return state.term, state.isLeader
 	}
-}
-
-// this function should be seen as atomic.
-func (rf *Raft) Role() RoleEnum {
-	rf.roleLock.RLock()
-	defer rf.roleLock.RUnlock()
-	return rf.role.role()
-}
-
-// save Raft's persistent state to stable storage,
-// where it can later be retrieved after a crash and restart.
-// see paper's Figure 2 for a description of what should be persistent.
-// before you've implemented snapshots, you should pass nil as the
-// second argument to persister.Save().
-// after you've implemented snapshots, pass the current snapshot
-// (or nil if there's not yet a snapshot).
-func (rf *Raft) persist() {
-	// Your code here (3C).
-	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// raftstate := w.Bytes()
-	// rf.persister.Save(raftstate, nil)
+	return -1, false
 }
 
 
@@ -182,23 +178,91 @@ func (rf *Raft) readPersist(data []byte) {
 // service no longer needs the log through (and including)
 // that index. Raft should now trim its log as much as possible.
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
-	// Your code here (3D).
-
+	rf.log("Take snapshot at command index %d", index)
+	ch := make(chan bool, 1)
+	for ok := false; !ok && !rf.dead.Load(); ok = <- ch {
+		rf.chLock.RLock()
+		rf.evCh <- &SnapshotEvent {
+			index: index,
+			snapshot: snapshot,
+			ch: ch,
+		}
+		rf.chLock.RUnlock()
+	}
 }
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
+	rf.log("RequestVote RPC from [%d/%d], last log info = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
+
 	if !rf.dead.Load() {
-		rf.roleLock.RLock()
-		defer rf.roleLock.RUnlock()
-		rf.role.requestVote(args, reply)
+		ch := make(chan bool, 1)
+		rf.chLock.RLock()
+		rf.evCh <- &RequestVoteEvent {
+			args: args,
+			reply: reply,
+			ch: ch,
+		}
+		rf.log("RequestVote RPC from [%d/%d] received in channel", args.CandidateID, args.Term)
+		rf.chLock.RUnlock()
+		reply.Responsed = <- ch
 	}
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	if args.Snapshot != nil {
+		rf.log("InstallSnapshot RPC from [%d/%d], LastInclude = [%d/%d]", args.Id, args.Term, args.Snapshot.LastIncludeIndex, args.Snapshot.LastIncludeTerm)
+	} else {
+		var indices []int
+		if args.SendEntries != nil && len(args.SendEntries.Entries) > 0 {
+			indices = []int{args.SendEntries.PrevLogInfo.Index+1, args.SendEntries.PrevLogInfo.Index+len(args.SendEntries.Entries)}
+		}
+		rf.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d, Entries = %v", args.Id, args.Term, args.SendEntries.PrevLogInfo.Index, args.SendEntries.PrevLogInfo.Term, args.LeaderCommit, indices)
+	}
+
 	if !rf.dead.Load() {
-		rf.roleLock.RLock()
-		defer rf.roleLock.RUnlock()
-		rf.role.appendEntries(args, reply)
+		ch := make(chan bool, 1)
+		rf.chLock.RLock()
+		rf.evCh <- &AppendEntriesEvent {
+			args: args,
+			reply: reply,
+			ch: ch,
+		}
+		rf.log("AppendEntries from [%d/%d] received in channel", args.Id, args.Term)
+		rf.chLock.RUnlock()
+		reply.Responsed = <- ch
+	}
+}
+
+func (rf *Raft) processor() {
+	for !rf.dead.Load() {
+		ev := <- rf.evCh
+		switch ev := ev.(type) {
+		case *TransEvent:
+			rf.role.activate()
+
+		case *SnapshotEvent:
+			if rf.role.closed() {
+				ev.ch <- false
+			} else {
+				rf.logs.takeSnapshot(ev.index, ev.snapshot)
+				ev.ch <- true
+			}
+
+		default:
+			if !rf.role.closed() {
+				rf.role.process(ev)
+			} else {
+				rf.log("Abandoned %s", typeName(ev))
+				abandonEv(ev)
+			}
+		}
+	}
+}
+
+func (rf *Raft) transRole(f func(Role) Role) {
+	if rf.role.stop() {
+		rf.role = f(rf.role)
+		rf.evCh <- &TransEvent{}
 	}
 }
 
@@ -244,15 +308,19 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 // term. the third return value is true if this server believes it is
 // the leader.
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	// Your code here (3B).
-	rf.roleLock.Lock()
-	defer rf.roleLock.Unlock()
+	if !rf.dead.Load() {
+		ch := make(chan *StartCommandReply, 1)
 
-	switch role := rf.role.(type) {
-	case *Leader:
-		idx, term := role.addEntry(command)
-		rf.log("Add command at index %d with term %d", idx, term)
-		return idx, term, true
+		var reply *StartCommandReply
+		for ; reply == nil; reply = <- ch {
+			rf.chLock.RLock()
+			rf.evCh <- &StartCommandEvent {
+				command: command,
+				ch: ch,
+			}
+			rf.chLock.RUnlock()
+		}
+		return reply.index, reply.term, reply.ok
 	}
 	return -1, -1, false
 }
@@ -267,8 +335,11 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // confusing debug output. any goroutine with a long-running loop
 // should call killed() to check whether it should stop.
 func (rf *Raft) Kill() {
+	rf.role.stop()
 	rf.dead.Store(true)
-	rf.role.kill()
+	rf.log("Now I'm dead")
+	<- rf.logs.applierDone
+	rf.log("applier done")
 	// Your code here, if desired.
 }
 
@@ -301,43 +372,77 @@ func (rf *Raft) ticker() {
 // for any long-running work.
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
-	if !registerd {
-		gob.Register(NoopEntry{})
-		registerd = true
-	}
-	
 	setupLogger()
 
 	rf := &Raft {
 		peers: peers,
 		persister: persister,
 		me: me,
+		evCh: make(chan Event, 1000),
+		majorN: len(peers)/2+1,
+		applyCh: applyCh,
+		term: 0,
+		voteFor: -1,
 	}
-	rf.logs = newLogs(rf, applyCh)
 
-	// Your initialization code here (3A, 3B, 3C).
+	// read snapshot
+	snapshot := rf.persister.ReadSnapshot()
 
+	// read persistent data and init logs
+	var logs *Logs
+	var state PersistentState
+	reader := bytes.NewReader(persister.ReadRaftState())
+	dec := gob.NewDecoder(reader)
+
+	switch err := dec.Decode(&state); err {
+	case nil:
+		logs = newLogs(rf, &state.Logs, snapshot)
+		rf.term = state.Term
+		rf.voteFor = state.VoteFor
+
+	case io.EOF:
+		logs = newLogs(rf, nil, snapshot)
+
+	default:
+		log.Fatal(err.Error())
+	}
+
+	logs.rf = rf
+	rf.logs = logs
+	rf.chLock.Lock()
+	
 	flw := &Follower {
 		rf: rf,
-		leaderInfo: &LeaderInfo {
-			id: -1,
-			term: 0,
-		},
 	}
 	rf.role = flw
-	flw.init()
 
-	// initialize from state persisted before a crash
-	rf.readPersist(persister.ReadRaftState())
-
-	// start ticker goroutine to start elections
-	// go rf.ticker()
+	go rf.processor()
+	time.Sleep(100 * time.Millisecond)
+	rf.evCh <- &TransEvent{}
 
 	return rf
 }
 
+
+func (rf *Raft) tryPutEv(ev Event, role Role) bool {
+	if !rf.chLock.TryRLock() {
+		return false
+	}
+	defer rf.chLock.RUnlock()
+
+	if !role.closed() {
+		rf.evCh <- ev
+		rf.log("Put ev %s", typeName(ev))
+		return true
+	} 
+	return false
+}
+
 func (rf *Raft) log(format string, args ...interface{}) {
 	rf.role.log(format, args...)
+}
+func (rf *Raft) fatal(format string, args ...interface{}) {
+	rf.role.fatal(format, args...)
 }
 
 func setupLogger() {
