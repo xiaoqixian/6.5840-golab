@@ -58,6 +58,8 @@ type config struct {
 	bytes0    int64
 	maxIndex  int
 	maxIndex0 int
+
+	description string
 }
 
 var ncpu_once sync.Once
@@ -639,6 +641,7 @@ func (cfg *config) begin(description string) {
 	cfg.bytes0 = cfg.bytesTotal()
 	cfg.cmds0 = 0
 	cfg.maxIndex0 = cfg.maxIndex
+	cfg.description = description
 }
 
 // end a Test -- the fact that we got here means there
@@ -656,8 +659,10 @@ func (cfg *config) end() {
 		ncmds := cfg.maxIndex - cfg.maxIndex0   // number of Raft agreements reported
 		cfg.mu.Unlock()
 
-		fmt.Printf("  ... Passed --")
+		fmt.Printf("%s  ... Passed --", cfg.description)
 		fmt.Printf("  %4.1f  %d %4d %7d %4d\n", t, npeers, nrpc, nbytes, ncmds)
+	} else {
+		log.Fatalf("%s ... FAIL --", cfg.description)
 	}
 }
 
