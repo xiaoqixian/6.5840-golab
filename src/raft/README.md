@@ -166,22 +166,30 @@ type AppendEntriesArgs struct {
 
 ​	lab 提供 `Persister` 的实现, 在每一次创建节点的时候传入一个实例的复制, 其中 `raftstate` 字段存储有节点实例持久化的状态, 为 `[]byte` 类型.  所以本质上 `Persister` 就是 lab 在让节点崩溃时为我们保存一段字节数组, 以便在节点重启时恢复崩溃前的状态. 
 
-##### Apply 操作的幂等性
-
-​	本 lab 设计的 Apply 操作具有幂等性, 即同一个index 的 log 可以被多次提交, 只需要与其它节点的同 index log 保持相同即可. 
-
-​	幂等性保证了节点不用担心 crash 之后多次 apply 的问题, 假如节点刚好在提交了一个log之后、更新 LAI 之前 crash. 则在重启之后由于 LAI 没有来得及持久化, 所以之前已经提交的 log 将再次提交, 而 lab 保证了多次提交不会影响测试结果. 
-
 ##### 什么样的数据需要持久化?
 
-​	Raft 论文中提出需要持久化的数据包括 term、voteFor 和 logs,  但我认为除了 logs 需要持久化之外, 其它的状态信息均不需要持久化. 
+​	需要持久化的数据主要为 Term 和 logs 相关的数据
 
-1. 为什么 term 不需要持久化?
+```GO
+type PersistentLogs struct {
+	Entries []LogEntry
+	Lci int32
+	Lli int32
+	Lai int32
+	NoopCount int
+	Offset int
+}
+type PersistentState struct {
+	Term int
+	Logs PersistentLogs
+}
+```
 
-   如果选择不持久化, 则节点从 follower 角色、 term 为 0 开始工作. 此时, 若集群存在 leader, 在接受 `AppendEntries` 信息时, 节点的 term 就可以迅速与 leader 同步. 
+Raft 算法的论文提到还有 `voteFor` 的信息需要持久化, 但是我没有选择这样做. 因为
 
-2. 为什么 voteFor 不需要持久化?	
-
+1. 节点在投票后立刻宕机的可能性比较低
+2. 即便节点在投票后宕机, 也比较难影响其所投票的对象是否当选, 除非节点的投票回复信息在网络中丢失, 而节点刚好投票后宕机. 这个过程会造成节点已经投票但是candidate没有收到的情况.
+3. 即便如此, 并不会影响
 
 ##### Fast Match
 
