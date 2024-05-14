@@ -24,6 +24,7 @@ type PersistentLogs struct {
 }
 
 type PersistentState struct {
+	VoteFor int
 	Term int
 	Logs PersistentLogs
 }

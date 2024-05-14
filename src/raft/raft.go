@@ -398,6 +398,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	case nil:
 		logs = newLogs(rf, &state.Logs, snapshot)
 		rf.term = state.Term
+		rf.voteFor = state.VoteFor
 
 	case io.EOF:
 		logs = newLogs(rf, nil, snapshot)
