@@ -22,6 +22,7 @@ import (
 	// "bytes"
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -41,6 +42,7 @@ import (
 // CommandValid to true to indicate that the ApplyMsg contains a newly
 // committed log entry.
 var registerd = false
+const logEnabled = false
 //
 // in part 3D you'll want to send other kinds of messages (e.g.,
 // snapshots) on the applyCh, but set CommandValid to false for these
@@ -66,6 +68,7 @@ const (
 
 type Role interface {
 	role() RoleEnum
+	name() string
 
 	closed() bool
 	activate()
@@ -73,9 +76,6 @@ type Role interface {
 
 	// return false if the role is already stopped.
 	stop() bool
-
-	log(string, ...interface{})
-	fatal(string, ...interface{})
 }
 
 type Snapshot struct {
@@ -438,11 +438,17 @@ func (rf *Raft) tryPutEv(ev Event, role Role) bool {
 	return false
 }
 
+func (rf *Raft) _log(fn func(string, ...interface{}), format string, args ...interface{}) {
+	if logEnabled {
+		fn("[%s %d/%d/%d/%d/%d] %s", rf.role.name(), rf.me, rf.term, rf.logs.LLI(), rf.logs.LCI(), len(rf.logs.entries), fmt.Sprintf(format, args...))
+	}
+}
+
 func (rf *Raft) log(format string, args ...interface{}) {
-	rf.role.log(format, args...)
+	rf._log(log.Printf, format, args...)
 }
 func (rf *Raft) fatal(format string, args ...interface{}) {
-	rf.role.fatal(format, args...)
+	rf._log(log.Fatalf, format, args...)
 }
 
 func setupLogger() {

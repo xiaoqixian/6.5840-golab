@@ -5,8 +5,6 @@
 package raft
 
 import (
-	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +30,7 @@ type Candidate struct {
 }
 
 func (*Candidate) role() RoleEnum { return CANDIDATE }
+func (*Candidate) name() string { return "Candidate" }
 
 func (cd *Candidate) closed() bool { return !cd.active.Load() }
 
@@ -39,7 +38,7 @@ func (cd *Candidate) activate() {
 	if cd.active.CompareAndSwap(false, true) {
 		cd.startElection()
 		cd.rf.chLock.Unlock()
-		cd.log("Activated")
+		cd.rf.log("Activated")
 	}
 }
 
@@ -49,7 +48,7 @@ func (cd *Candidate) stop() bool {
 			cd.elecTimer.Stop()
 		}
 		cd.rf.chLock.Lock()
-		cd.log("Stopped")
+		cd.rf.log("Stopped")
 		return true
 	} else {
 		return false
@@ -86,25 +85,14 @@ func (cd *Candidate) process(ev Event) {
 		cd.rf.transRole(followerFromCandidate)
 
 	default:
-		cd.log("Unknown event %s", typeName(ev))
+		cd.rf.log("Unknown event %s", typeName(ev))
 	}
 
 }
 
-func (cd *Candidate) _log(f func(string, ...interface{}), format string, args ...interface{}) {
-	f("[Candidate %d/%d/%d/%d] %s", cd.rf.me, cd.rf.term, cd.rf.logs.LLI(), cd.rf.logs.LCI(), fmt.Sprintf(format, args...))
-}
-
-func (cd *Candidate) log(format string, args ...interface{}) {
-	cd._log(log.Printf, format, args...)
-}
-func (cd *Candidate) fatal(format string, args ...interface{}) {
-	cd._log(log.Fatalf, format, args...)
-}
-
 func (cd *Candidate) setElecTimer() {
 	d := genRandomDuration(ELECTION_TIMEOUT...)
-	cd.log("Election timeout after %s", d)
+	cd.rf.log("Election timeout after %s", d)
 	rf := cd.rf
 	if cd.elecTimer == nil || cd.elecTimer.Reset(d) {
 		cd.elecTimer = time.AfterFunc(d, func() {
@@ -128,7 +116,7 @@ func (cd *Candidate) startElection() {
 		if i == rf.me { continue }
 		
 		go func(peer *labrpc.ClientEnd, id int, term int, rf *Raft) {
-			cd.log("Request vote from %d", id)
+			cd.rf.log("Request vote from %d", id)
 			reply := &RequestVoteReply {}
 
 			ok := peer.Call("Raft.RequestVote", args, reply)
@@ -159,7 +147,7 @@ func (cd *Candidate) startElection() {
 					rf.tryPutEv(&StaleCandidateEvent{cd.rf.term}, cd)
 
 				case VOTE_DEFAULT:
-					cd.fatal("Unprocessed vote request from %d", reply.VoterID)
+					cd.rf.fatal("Unprocessed vote request from %d", reply.VoterID)
 				}
 
 			}
@@ -213,14 +201,14 @@ func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 		}
 
 	case args.Term > cd.rf.term:
-		cd.log("Fallback to follower")
+		cd.rf.log("Fallback to follower")
 		cd.rf.setTerm(args.Term)
 		cd.rf.transRole(followerFromCandidate)
 
 		if cd.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			reply.VoteStatus = VOTE_GRANTED
 			cd.rf.voteFor = args.CandidateID
-			cd.log("Grant Vote to %d", args.CandidateID)
+			cd.rf.log("Grant Vote to %d", args.CandidateID)
 		} else {
 			reply.VoteStatus = VOTE_OTHER
 		}
@@ -233,7 +221,7 @@ func (cd *Candidate) auditVote(ev *VoteGrantEvent) {
 		cd.votes++
 
 		if cd.votes >= cd.rf.majorN {
-			cd.log("Elected")
+			cd.rf.log("Elected")
 			cd.rf.transRole(leaderFromCandidate)
 		}
 	}

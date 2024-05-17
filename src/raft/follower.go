@@ -5,8 +5,6 @@
 package raft
 
 import (
-	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -20,12 +18,13 @@ type Follower struct {
 }
 
 func (*Follower) role() RoleEnum { return FOLLOWER }
+func (*Follower) name() string { return "Follower" }
 
 func (flw *Follower) closed() bool { return !flw.active.Load() }
 
 func (flw *Follower) activate() { 
 	if flw.active.CompareAndSwap(false, true) {
-		flw.log("Activated")
+		flw.rf.log("Activated")
 		flw.rf.chLock.Unlock()
 		flw.tickHeartBeatTimer()
 	}
@@ -61,11 +60,11 @@ func (flw *Follower) process(ev Event) {
 		flw.requestVote(ev)
 
 	case *HeartBeatTimeoutEvent:
-		flw.log("HeartBeat Timeout")
+		flw.rf.log("HeartBeat Timeout")
 		flw.rf.transRole(candidateFromFollower)
 
 	default:
-		flw.fatal("Unknown event type: %s", typeName(ev))
+		flw.rf.fatal("Unknown event type: %s", typeName(ev))
 	}
 }
 
@@ -78,9 +77,9 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	args, reply := ev.args, ev.reply
 
 	// if args.Entry != nil {
-	// 	flw.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
+	// 	flw.rf.log("AppendEntries RPC from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
 	// } else {
-	// 	flw.log("HeartBeat from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
+	// 	flw.rf.log("HeartBeat from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
 	// }
 	
 	if args.Term < flw.rf.term {
@@ -127,7 +126,7 @@ func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 	case args.Term == flw.rf.term:
 		if args.CandidateID == flw.rf.voteFor {
 			reply.VoteStatus = VOTE_GRANTED
-			flw.log("Receive a duplicate vote request, vote granted")
+			flw.rf.log("Receive a duplicate vote request, vote granted")
 		} else {
 			reply.VoteStatus = VOTE_OTHER
 		}
@@ -135,7 +134,7 @@ func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 	case args.Term > flw.rf.term:
 		flw.rf.setTerm(args.Term)
 		if flw.rf.logs.atLeastUpToDate(args.LastLogInfo) {
-			flw.log("Grant vote to %d", args.CandidateID)
+			flw.rf.log("Grant vote to %d", args.CandidateID)
 			flw.rf.voteFor = args.CandidateID
 			reply.VoteStatus = VOTE_GRANTED
 			flw.tickHeartBeatTimer()
@@ -147,23 +146,12 @@ func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 
 func (flw *Follower) tickHeartBeatTimer() {
 	d := genRandomDuration(HEARTBEAT_TIMEOUT...)
-	flw.log("HeartBeat timeout after %s", d)
+	flw.rf.log("HeartBeat timeout after %s", d)
 	if flw.hbTimer == nil || !flw.hbTimer.Reset(d) {
 		flw.hbTimer = time.AfterFunc(d, func() {
 			flw.rf.tryPutEv(&HeartBeatTimeoutEvent{}, flw)
 		})
 	}
-}
-
-func (flw *Follower) _log(f func(string, ...interface{}), format string, args ...interface{}) {
-	f("[Follower %d/%d/%d/%d/%d] %s", flw.rf.me, flw.rf.term, flw.rf.logs.LLI(), flw.rf.logs.LCI(), len(flw.rf.logs.entries), fmt.Sprintf(format, args...))
-}
-
-func (flw *Follower) log(format string, args ...interface{}) {
-	flw._log(log.Printf, format, args...)
-}
-func (flw *Follower) fatal(format string, args ...interface{}) {
-	flw._log(log.Fatalf, format, args...)
 }
 
 func followerFromCandidate(r Role) Role {

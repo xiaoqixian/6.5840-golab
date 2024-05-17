@@ -5,8 +5,6 @@
 package raft
 
 import (
-	"fmt"
-	"log"
 	"sync/atomic"
 )
 
@@ -18,6 +16,7 @@ type Leader struct {
 	rc *ReplCounter
 }
 func (*Leader) role() RoleEnum { return LEADER }
+func (*Leader) name() string { return "Leader" }
 
 func (ld *Leader) closed() bool { return !ld.active.Load() }
 
@@ -37,7 +36,7 @@ func (ld *Leader) activate() {
 		CommandIndex: NOOP_INDEX,
 		Term: ld.rf.term,
 	})
-	ld.log("Add NoopEntry with index = %d", logIndex)
+	ld.rf.log("Add NoopEntry with index = %d", logIndex)
 	ld.rc.watchIndex(logIndex)
 
 	// ld.hbTimer = newRepeatTimer(HEARTBEAT_SEND, func() {
@@ -77,7 +76,7 @@ func (ld *Leader) process(ev Event) {
 			term: ld.rf.term,
 			index: commandIndex,
 		}
-		ld.log("Start command with index = %d, commandIndex = %d", logIndex, commandIndex)
+		ld.rf.log("Start command with index = %d, commandIndex = %d", logIndex, commandIndex)
 		ld.rc.watchIndex(logIndex)
 
 	case *AppendEntriesEvent:
@@ -94,22 +93,8 @@ func (ld *Leader) process(ev Event) {
 		ld.rf.transRole(followerFromLeader)
 
 	default:
-		ld.fatal("Unknown event type: %s", typeName(ev))
+		ld.rf.fatal("Unknown event type: %s", typeName(ev))
 	}
-}
-
-func (ld *Leader) _log(f func(string, ...interface{}), format string, args ...interface{}) {
-	f("[Leader %d/%d/%d/%d/%d] %s", 
-	ld.rf.me, ld.rf.term, ld.rf.logs.LLI(), 
-	ld.rf.logs.LCI(), len(ld.rf.logs.entries), 
-	fmt.Sprintf(format, args...))
-}
-
-func (ld *Leader) log(format string, args ...interface{}) {
-	ld._log(log.Printf, format, args...)
-}
-func (ld *Leader) fatal(format string, args ...interface{}) {
-	ld._log(log.Fatalf, format, args...)
 }
 
 func leaderFromCandidate(r Role) Role {
@@ -132,7 +117,7 @@ func (ld *Leader) appendEntries(ev *AppendEntriesEvent) {
 		reply.EntryStatus = ENTRY_STALE
 
 	case args.Term == ld.rf.term:
-		ld.fatal("Two leaders with a same term")
+		ld.rf.fatal("Two leaders with a same term")
 
 	case args.Term > ld.rf.term:
 		reply.EntryStatus = ENTRY_HOLD
@@ -144,24 +129,24 @@ func (ld *Leader) appendEntries(ev *AppendEntriesEvent) {
 func (ld *Leader) requestVote(ev *RequestVoteEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	ld.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
+	ld.rf.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
 	reply.Term = ld.rf.term
 
 	switch {
 	case args.Term <= ld.rf.term:
 		assert(ld.rf.voteFor == -1)
 		reply.VoteStatus = VOTE_DENIAL
-		ld.log("Vote denialed for %d", args.CandidateID)
+		ld.rf.log("Vote denialed for %d", args.CandidateID)
 		
 	case args.Term > ld.rf.term:
 		ld.rf.setTerm(args.Term)
 		if ld.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			reply.VoteStatus = VOTE_GRANTED
 			ld.rf.voteFor = args.CandidateID
-			ld.log("Vote granted to %d", args.CandidateID)
+			ld.rf.log("Vote granted to %d", args.CandidateID)
 		} else {
 			reply.VoteStatus = VOTE_OTHER
-			ld.log("I'd like to vote to others")
+			ld.rf.log("I'd like to vote to others")
 		}
 		ld.rf.transRole(followerFromLeader)
 	}

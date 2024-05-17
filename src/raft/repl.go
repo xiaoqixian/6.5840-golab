@@ -76,7 +76,7 @@ func (repl *Replicator) matchIndex() {
 		for ld.active.Load() && l <= r {
 			m := l + (r - l)/2
 			mTerm, ok := logs.tryIndexLogTerm(m)
-			ld.log("tryIndexLogTerm, m = %d, mTerm = %d, ok = %t", m, mTerm, ok)
+			ld.rf.log("tryIndexLogTerm, m = %d, mTerm = %d, ok = %t", m, mTerm, ok)
 			if !ok { continue search }
 
 			args := &AppendEntriesArgs {
@@ -98,11 +98,11 @@ func (repl *Replicator) matchIndex() {
 				case ENTRY_MATCH:
 					prevLogIndex = m
 					l = m + 1
-					ld.log("[repl %d] m = %d matched", repl.peerId, m)
+					ld.rf.log("[repl %d] m = %d matched", repl.peerId, m)
 					break round
 
 				case ENTRY_UNMATCH:
-					ld.log("[repl %d] m = %d not matched", repl.peerId, m)
+					ld.rf.log("[repl %d] m = %d not matched", repl.peerId, m)
 					r = m - 1
 					break round
 
@@ -113,7 +113,7 @@ func (repl *Replicator) matchIndex() {
 				case ENTRY_HOLD:
 					
 				default:
-					ld.fatal("Unprocessed EntryStatus: %d", reply.EntryStatus)
+					ld.rf.fatal("Unprocessed EntryStatus: %d", reply.EntryStatus)
 				}
 			}
 		}
@@ -121,7 +121,7 @@ func (repl *Replicator) matchIndex() {
 	}
 	if ld.active.Load() {
 		repl.nextIndex = prevLogIndex + 1
-		ld.log("Peer %d match index = %d", repl.peerId, repl.nextIndex)
+		ld.rf.log("Peer %d match index = %d", repl.peerId, repl.nextIndex)
 	}
 }
 
@@ -166,22 +166,22 @@ func (repl *Replicator) start() {
 			ok = rpcMultiTry(rpcCall) {
 				time.Sleep(RPC_FAIL_WAITING)
 				args.LeaderCommit = logs.LCI()
-				ld.log("AppendEntries Call to peer %d try again", repl.peerId)
+				ld.rf.log("AppendEntries Call to peer %d try again", repl.peerId)
 			}
 
 			if !ld.active.Load() { break replication }
 
 			switch reply.EntryStatus {
 			case ENTRY_DEFAULT:
-				ld.fatal("AppendEntries RPC EntryStatus is default from %d", repl.peerId)
+				ld.rf.fatal("AppendEntries RPC EntryStatus is default from %d", repl.peerId)
 				
 			case ENTRY_STALE:
-				ld.log("%d said i'm stale, my term = %d, reply term = %d", repl.peerId, ld.rf.term, reply.Term)
+				ld.rf.log("%d said i'm stale, my term = %d, reply term = %d", repl.peerId, ld.rf.term, reply.Term)
 				ld.rf.tryPutEv(&StaleLeaderEvent { reply.Term }, ld)
 				return
 
 			case ENTRY_UNMATCH:
-				ld.log("Peer %d lost match, rematch", repl.peerId)
+				ld.rf.log("Peer %d lost match, rematch", repl.peerId)
 				repl.matchIndex()
 				continue replication
 
@@ -191,11 +191,11 @@ func (repl *Replicator) start() {
 
 			case ENTRY_MATCH:
 				if snapshot != nil {
-					ld.log("Peer %d confirmed snapshot with lastIncludeIndex = %d", repl.peerId, snapshot.LastIncludeIndex)
+					ld.rf.log("Peer %d confirmed snapshot with lastIncludeIndex = %d", repl.peerId, snapshot.LastIncludeIndex)
 
 					repl.nextIndex = snapshot.LastIncludeIndex + 1
 				} else if len(sendEntries.Entries) > 0 {
-					ld.log("%d confirmed log [%d %d]", repl.peerId, repl.nextIndex, repl.nextIndex+len(sendEntries.Entries)-1)
+					ld.rf.log("%d confirmed log [%d %d]", repl.peerId, repl.nextIndex, repl.nextIndex+len(sendEntries.Entries)-1)
 
 					ld.rf.tryPutEv(&ReplConfirmEvent {
 						id: repl.peerId,
