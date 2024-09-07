@@ -9,7 +9,7 @@ type Event interface{
 	// prepared for this.
 }
 
-func abandonEv(ev Event) {
+func discardEv(ev Event) {
 	switch ev := ev.(type) {
 	case *RequestVoteEvent:
 		ev.ch <- false
@@ -34,7 +34,9 @@ func abandonEv(ev Event) {
 // should abandon all events, until a TransEvent occurs. 
 // After received TransEvent, the processor should activate 
 // the role, so it starts to process events.
-type TransEvent struct {}
+type TransEvent struct {
+	transFunc func(Role) Role
+}
 
 type RequestVoteEvent struct {
 	args *RequestVoteArgs
@@ -74,6 +76,10 @@ type SnapshotEvent struct {
 
 type InstallSnapshotEvent struct {
 	snapshot *Snapshot
+}
+
+type KillEvent struct {
+	ch chan struct{}
 }
 
 // == FOLLOWER EVENT ==

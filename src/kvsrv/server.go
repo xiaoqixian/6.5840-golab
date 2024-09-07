@@ -32,6 +32,10 @@ type Value struct {
 // sync client RPC ID, return a bool to indicate 
 // should continue operation.
 func (kv *KVServer) syncRpcID(args *PutAppendArgs, reply *PutAppendReply) bool {
+	// As we think each client as a remote thread, 
+	// in which case, all requests from the same client ID 
+	// are serialized. 
+	// So we don't need to use lock here.
 	actual, _ := kv.clientsSync.LoadOrStore(args.ClientID, &SyncInfo { RpcID: 1 })
 	clientSyncInfo := actual.(*SyncInfo)
 

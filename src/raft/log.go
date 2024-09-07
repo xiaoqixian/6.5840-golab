@@ -41,7 +41,7 @@ type Logs struct {
 	lci atomic.Int32
 	lli atomic.Int32
 	lai atomic.Int32
-	noopCount int
+	noopCount atomic.Int32
 	rf *Raft
 	offset int
 
@@ -53,7 +53,11 @@ type Logs struct {
 	sync.RWMutex
 }
 
-func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) *Logs {
+func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) (*Logs, chan struct{}){
+	// we need a channel to tell goroutine that a Raft instance is 
+	// attached to the logs instance.
+	rfAttached := make(chan struct {}, 1)
+
 	logs := &Logs {
 		rf: rf,
 		offset: 0,
@@ -71,7 +75,7 @@ func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) *Logs {
 		logs.lci.Store(persistLogs.Lci)
 		logs.lai.Store(persistLogs.Lai)
 		logs.entries = persistLogs.Entries
-		logs.noopCount = persistLogs.NoopCount
+		logs.noopCount.Store(persistLogs.NoopCount)
 		logs.snapshot = persistLogs.Snapshot
 		logs.offset = persistLogs.Offset
 
@@ -104,6 +108,8 @@ func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) *Logs {
 	}
 
 	go func() {
+		<- rfAttached
+
 		rf := logs.rf
 		ticker := time.NewTicker(APPLY_CHECK_FREQ)
 		defer ticker.Stop()
@@ -121,7 +127,7 @@ func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) *Logs {
 			return false
 		}
 
-		apply: for !logs.rf.dead.Load() {
+		apply: for !rf.dead.Load() {
 			var aet ApplyEntry
 			wait: for {
 				select {
@@ -180,7 +186,7 @@ func newLogs(rf *Raft, persistLogs *PersistentLogs, snapshot []byte) *Logs {
 		rf.log("LAI = %d before applier quit", logs.LAI())
 		logs.applierDone <- true
 	}()
-	return logs
+	return logs, rfAttached
 }
 
 func (logs *Logs) updateCommit(leaderCommit int) {
@@ -245,14 +251,15 @@ func (logs *Logs) indexLogTerm(idx int) int {
 }
 
 func (logs *Logs) pushEntry(et LogEntry) int {
+	logs.Lock()
+	defer logs.Unlock()
 	newLLI := logs.LLI() + 1
 	switch et.CommandIndex {
 	case NOOP_INDEX:
-		logs.noopCount++
+		logs.noopCount.Add(1)
 
 	default:
-		logs.rf.log("logs.noopCount = %d", logs.noopCount)
-		et.CommandIndex = newLLI - logs.noopCount + 1
+		et.CommandIndex = newLLI - logs.Noop() + 1
 	}
 
 	logs.entries = append(logs.entries, et)
@@ -262,10 +269,12 @@ func (logs *Logs) pushEntry(et LogEntry) int {
 }
 
 func (logs *Logs) pushEntries(ets []LogEntry) {
+	logs.Lock()
+	defer logs.Unlock()
 	for _, et := range ets {
 		switch et.CommandIndex {
 		case NOOP_INDEX:
-			logs.noopCount++
+			logs.noopCount.Add(1)
 		}
 	}
 
@@ -311,7 +320,7 @@ func (logs *Logs) followerInstallSnapshot(snapshot *Snapshot) {
 
 	logs.entries = []LogEntry{}
 	logs.offset = snapshot.LastIncludeIndex+1
-	logs.noopCount = snapshot.NoopCount
+	logs.noopCount.Store(int32(snapshot.NoopCount))
 	logs.lli.Store(int32(snapshot.LastIncludeIndex))
 	logs.lci.Store(int32(snapshot.LastIncludeIndex))
 	logs.applier <- &ApplySnapshotEntry { snapshot }
@@ -329,9 +338,11 @@ func (logs *Logs) leaderAppendEntry(et LogEntry) (int, int) {
 
 // idx not included
 func (logs *Logs) removeAfter(idx int) {
+	logs.Lock()
+	defer logs.Unlock()
 	for _, et := range logs.entries[idx+1-logs.offset:] {
 		if et.CommandIndex == NOOP_INDEX {
-			logs.noopCount--
+			logs.noopCount.Add(-1)
 		}
 	}
 	logs.entries = logs.entries[:idx+1-logs.offset]
@@ -406,6 +417,10 @@ func (logs *Logs) LLI() int {
 
 func (logs *Logs) LAI() int {
 	return int(logs.lai.Load())
+}
+
+func (logs *Logs) Noop() int {
+	return int(logs.noopCount.Load())
 }
 
 // compare if the log is as up-to-date the logs' last log.

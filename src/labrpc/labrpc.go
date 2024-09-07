@@ -407,10 +407,10 @@ func MakeServer() *Server {
 }
 
 func (rs *Server) AddService(svc *Service) {
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	rs.services[svc.name] = svc
-}
+		rs.mu.Lock()
+		defer rs.mu.Unlock()
+		rs.services[svc.name] = svc
+	}
 
 func (rs *Server) dispatch(req reqMsg) replyMsg {
 	rs.mu.Lock()
@@ -430,13 +430,13 @@ func (rs *Server) dispatch(req reqMsg) replyMsg {
 		return service.dispatch(methodName, req)
 	} else {
 		choices := []string{}
-		for k := range rs.services {
+		for k, _ := range rs.services {
 			choices = append(choices, k)
 		}
-		log.Fatalf("labrpc.Server.dispatch(): unknown service %v in %v.%v; expecting one of %v\n",
-			serviceName, serviceName, methodName, choices)
-		return replyMsg{false, nil}
-	}
+	log.Fatalf("labrpc.Server.dispatch(): unknown service %v in %v.%v; expecting one of %v\n",
+		serviceName, serviceName, methodName, choices)
+	return replyMsg{false, nil}
+}
 }
 
 func (rs *Server) GetCount() int {
@@ -513,7 +513,7 @@ func (svc *Service) dispatch(methname string, req reqMsg) replyMsg {
 		return replyMsg{true, rb.Bytes()}
 	} else {
 		choices := []string{}
-		for k := range svc.methods {
+		for k, _ := range svc.methods {
 			choices = append(choices, k)
 		}
 		log.Fatalf("labrpc.Service.dispatch(): unknown method %v in %v; expecting one of %v\n",

@@ -17,7 +17,7 @@ type PersistentLogs struct {
 	Lci int32
 	Lli int32
 	Lai int32
-	NoopCount int
+	NoopCount int32
 	Offset int
 	
 	Snapshot *Snapshot
@@ -25,7 +25,7 @@ type PersistentLogs struct {
 
 type PersistentState struct {
 	VoteFor int
-	Term int
+	Term int32
 	Logs PersistentLogs
 }
 
@@ -34,15 +34,16 @@ type PersistentState struct {
 func (rf *Raft) encodeState() []byte {
 	rf.log("Encode state, LAI = %d", rf.logs.lai.Load())
 	logs := rf.logs
+	logs.RLock()
 	state := PersistentState { 
 		VoteFor: rf.voteFor,
-		Term: rf.term,
+		Term: rf.term.Load(),
 		Logs: PersistentLogs {
 			Entries: logs.entries,
 			Lci: logs.lci.Load(),
 			Lli: logs.lli.Load(),
 			Lai: logs.lai.Load(),
-			NoopCount: logs.noopCount,
+			NoopCount: logs.noopCount.Load(),
 			Offset: logs.offset,
 		},
 	}
@@ -55,6 +56,7 @@ func (rf *Raft) encodeState() []byte {
 			NoopCount: logs.snapshot.NoopCount,
 		}
 	}
+	logs.RUnlock()
 
 	buf := new(bytes.Buffer)
 	enc := gob.NewEncoder(buf)

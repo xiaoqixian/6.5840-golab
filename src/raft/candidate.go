@@ -5,6 +5,7 @@
 package raft
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,6 +28,7 @@ type Candidate struct {
 	active atomic.Bool
 
 	elecTimer *time.Timer
+	timerLock sync.Mutex
 }
 
 func (*Candidate) role() RoleEnum { return CANDIDATE }
@@ -44,9 +46,12 @@ func (cd *Candidate) activate() {
 
 func (cd *Candidate) stop() bool {
 	if cd.active.CompareAndSwap(true, false) {
+		cd.timerLock.Lock()
 		if cd.elecTimer != nil {
 			cd.elecTimer.Stop()
 		}
+		cd.timerLock.Unlock()
+
 		cd.rf.chLock.Lock()
 		cd.rf.log("Stopped")
 		return true
@@ -79,7 +84,7 @@ func (cd *Candidate) process(ev Event) {
 		cd.rf.transRole(followerFromCandidate)
 
 	case *StaleCandidateEvent:
-		if ev.newTerm > cd.rf.term {
+		if ev.newTerm > cd.rf.Term() {
 			cd.rf.setTerm(ev.newTerm)
 		}
 		cd.rf.transRole(followerFromCandidate)
@@ -91,10 +96,15 @@ func (cd *Candidate) process(ev Event) {
 }
 
 func (cd *Candidate) setElecTimer() {
+	cd.timerLock.Lock()
+	defer cd.timerLock.Unlock()
+	if !cd.active.Load() { return }
+
 	d := genRandomDuration(ELECTION_TIMEOUT...)
 	cd.rf.log("Election timeout after %s", d)
 	rf := cd.rf
-	if cd.elecTimer == nil || cd.elecTimer.Reset(d) {
+
+	if cd.elecTimer == nil || !cd.elecTimer.Reset(d) {
 		cd.elecTimer = time.AfterFunc(d, func() {
 			rf.tryPutEv(&ElectionTimeoutEvent{}, cd)
 		})
@@ -103,12 +113,12 @@ func (cd *Candidate) setElecTimer() {
 
 func (cd *Candidate) startElection() {
 	rf := cd.rf
-	cd.rf.setTerm(cd.rf.term+1)
+	cd.rf.term.Add(1)
 	cd.votes = 1
 	cd.voters = make([]bool, len(rf.peers))
 
 	args := &RequestVoteArgs {
-		Term: cd.rf.term,
+		Term: cd.rf.Term(),
 		CandidateID: rf.me,
 		LastLogInfo: rf.logs.lastLogInfo(),
 	}
@@ -139,19 +149,19 @@ func (cd *Candidate) startElection() {
 					}, cd)
 
 				case VOTE_OTHER:
-					if reply.Term > cd.rf.term {
+					if reply.Term > cd.rf.Term() {
 						rf.tryPutEv(&StaleCandidateEvent{reply.Term}, cd)
 					}
 					
 				case VOTE_DENIAL:
-					rf.tryPutEv(&StaleCandidateEvent{cd.rf.term}, cd)
+					rf.tryPutEv(&StaleCandidateEvent{cd.rf.Term()}, cd)
 
 				case VOTE_DEFAULT:
 					cd.rf.fatal("Unprocessed vote request from %d", reply.VoterID)
 				}
 
 			}
-		}(peer, i, cd.rf.term, cd.rf)
+		}(peer, i, cd.rf.Term(), cd.rf)
 	}
 
 	cd.setElecTimer()
@@ -169,16 +179,16 @@ func (cd *Candidate) appendEntries(ev *AppendEntriesEvent) {
 	args, reply := ev.args, ev.reply
 	
 	switch {
-	case args.Term >= cd.rf.term:
+	case args.Term >= cd.rf.Term():
 		reply.EntryStatus = ENTRY_HOLD
-		if args.Term > cd.rf.term {
+		if args.Term > cd.rf.Term() {
 			cd.rf.setTerm(args.Term)
 		}
 		cd.rf.transRole(followerFromCandidate)
 
-	case args.Term < cd.rf.term:
+	case args.Term < cd.rf.Term():
 		reply.EntryStatus = ENTRY_STALE
-		reply.Term = cd.rf.term
+		reply.Term = cd.rf.Term()
 	}
 }
 
@@ -187,12 +197,11 @@ func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 	args, reply := ev.args, ev.reply
 
 	switch {
-	case args.Term < cd.rf.term:
+	case args.Term < cd.rf.Term():
 		reply.VoteStatus = VOTE_OTHER // which is myself.
-		reply.Term = cd.rf.term
+		reply.Term = cd.rf.Term()
 
-	case args.Term == cd.rf.term:
-		assert(cd.rf.voteFor == -1)
+	case args.Term == cd.rf.Term():
 		reply.Term = args.Term
 		if args.CandidateID == cd.rf.voteFor {
 			reply.VoteStatus = VOTE_GRANTED
@@ -200,7 +209,7 @@ func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 			reply.VoteStatus = VOTE_OTHER
 		}
 
-	case args.Term > cd.rf.term:
+	case args.Term > cd.rf.Term():
 		cd.rf.log("Fallback to follower")
 		cd.rf.setTerm(args.Term)
 		cd.rf.transRole(followerFromCandidate)
@@ -216,7 +225,7 @@ func (cd *Candidate) requestVote(ev *RequestVoteEvent) {
 }
 
 func (cd *Candidate) auditVote(ev *VoteGrantEvent) {
-	if cd.rf.term == ev.term && !cd.voters[ev.voter] {
+	if cd.rf.Term() == ev.term && !cd.voters[ev.voter] {
 		cd.voters[ev.voter] = true
 		cd.votes++
 

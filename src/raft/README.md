@@ -1,3 +1,5 @@
+# Lab3: Raft
+
 ##### 测试环境
 
 ​	使用 lab 提供的 `labrpc` 包进行 RPC 调用, 当开启 `reliable=false` 的设置, 将有1/10 的概率丢包, 此时 `Call` 接口直接返回 `false`.
@@ -312,24 +314,12 @@ type Snapshot struct {
 
    第二层循环中取中间位置调用 `tryIndexLogTerm`, 若获取失败, 则说明已经发生了一次 snapshot; 则回到第一层循环, 获取左右边界值后重新开始.
 
-##### 问题
+##### LAI 的持久化问题
 
-1. 在 `TestSnapshotInstallCrash3D` 测试中, 在 `Logs.updateCommit` 函数中出现了需要 Apply 的 entries 索引小于 0 的情况. 
+​	tester 的 applier 并不具有幂等性,  也就是说, 同一个 index 的 command 只能提交一次. 这个过程是 tester 通过记录节点 last applied index 来完成的.  同时, 当开启 snapshot 测试时, 节点 crash 重启之后会自动将节点 last applied index 设置为其 snapshot last include index. 
 
-   确定 Apply 范围的代码行 为
+​	这也是我比较不理解的一部分, 因为 Raft 中预想的 state machine 应当是持久的、有状态的, 即便节点崩溃也不会丧失 last applied index. 但是在测试中, 在节点重启后会将相关的 last applied index 重置为 0. 如果不阅读 test 源码的话, 这部分很容易错误实现.
 
-   ```go
-   st, ed := logs.LAI()-logs.offset+1, newCommit-logs.offset+1
-   ```
+​	因此, 节点必须在每次进行 snapshot 时将 LAI 赋值为 `LastIncludeIndex`, 并进行持久化. 这个过程必须在节点崩溃前完成, 因此这里有个取巧的过程. 
 
-   问题出现在起始索引 `st<0` 上, `logs.lai` 是一个原子变量, 而 entries 的 apply 过程是另一个协程通过 channel 来完成的. 当每次更新 LCI 以及 Install Snapshot 时, 就向该 channel 内发送一个特定的对象表示相应的 entries 可以被 apply, apply 之后再由该协程更新 LAI. 
-
-   提前更新 LAI 不是一个好的选择, 因为 tester 允许我们重复 apply, 但是不允许漏 apply. 如果在 apply 的过程中出现 crash, 将导致 LAI 已经更新但是 tester 没有接收到 applied entries 的情况. 
-
-   因此我考虑取消单独的 applier goroutine, 直接在接收到 entries 和 snapshot 的时候就 apply, 然后更新 LCI.
-
-2. 上面的操作带来了新的问题, tester 进行 snapshot 的时刻非常可能发生在一次连续的 apply 操作的中间. 
-
-   在 `Snapshot` 函数中会创建一个 `SnapshotEvent`, 然后一直等待处理. 但是由于主线程在完成 apply 操作, 无法立刻处理该事件; 而该事件没有处理返回, tester 就无法继续接收 `ApplyMsg`. 从而造成了死锁.
-
-3. 现在的一个补救办法就是在事件机制上开个后门, `SnapshotEvent` 放入之后就直接返回, 并不进行等待. 
+​	tester 让节点崩溃是通过调用节点的 `Kill()` 方法来完成的, 因此我们可以令节点在崩溃前立刻持久化对应的 LAI, 从而保证不会出现 `apply out of order` 错误. 之所以是取巧的, 是因为现实情况下节点的崩溃是不可预料的, 无法做到持久化后才崩溃. 但现实中的 state machine 的 Apply 过程应该也是原子性的, 我们可以通过询问 state machine 来获取 last applied index.

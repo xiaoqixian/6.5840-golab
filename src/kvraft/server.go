@@ -1,3 +1,7 @@
+// Date:   Wed May 15 13:39:03 2024
+// Mail:   lunar_ubuntu@qq.com
+// Author: https://github.com/xiaoqixian
+
 package kvraft
 
 import (
@@ -18,11 +22,9 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-
-type Op struct {
-	// Your definitions here.
-	// Field names must start with capital letters,
-	// otherwise RPC will break.
+type SyncInfo struct {
+	lastRpcID int
+	lastValue string
 }
 
 type KVServer struct {
@@ -30,16 +32,72 @@ type KVServer struct {
 	me      int
 	rf      *raft.Raft
 	applyCh chan raft.ApplyMsg
-	dead    int32 // set by Kill()
+	dead atomic.Bool
 
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
+	syncInfo sync.Map
+
+	startedCmds []CmdInfo
+
+	sync.Map
 }
 
+func (kv *KVServer) checkSync(clientID int, rpcID int, reply *RpcReply) bool {
+	actual, loaded := kv.syncInfo.LoadOrStore(clientID, &SyncInfo {
+		lastRpcID: 1,
+	})
+	// sync at start.
+	if !loaded { return true }
 
-func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
+	if actual.(*SyncInfo).lastRpcID != rpcID {
+		reply.RpcID = actual.(*SyncInfo).lastRpcID-1
+		reply.OpRes = OP_UNSYNC
+		return false
+	} else {
+		return true
+	}
+}
+
+func (kv *KVServer) startOp(args *RpcArgs, reply *RpcReply, op Op) {
 	// Your code here.
+	if !kv.checkSync(args.ClientID, args.RpcID, reply) {
+		return
+	}
+
+	kv.mu.Lock()
+
+	cmd := &CmdEntry {
+		clientID: args.ClientID,
+		rpcID: args.RpcID,
+		op: op,
+	}
+
+	index, _, ok := kv.rf.Start(cmd)
+	if !ok {
+		reply.OpRes = OP_FAIL
+		kv.mu.Unlock()
+		return
+	}
+
+	ch := make(chan bool, 1)
+	cmdInfo := CmdInfo {
+		cmdIndex: index,
+		clientID: args.ClientID,
+		rpcID: args.RpcID,
+		ch: ch,
+		reply: reply,
+	}
+	kv.startedCmds = append(kv.startedCmds, cmdInfo)
+
+	kv.mu.Unlock()
+	<- ch
+
+}
+
+func (kv *KVServer) Get(args *RpcArgs, reply *RpcReply) {
+	kv.startOp(args, reply, &GetOp{})
 }
 
 func (kv *KVServer) Put(args *PutAppendArgs, reply *PutAppendReply) {
@@ -48,6 +106,11 @@ func (kv *KVServer) Put(args *PutAppendArgs, reply *PutAppendReply) {
 
 func (kv *KVServer) Append(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
+}
+
+// RPC call
+func (kv *KVServer) GetState(args interface{}, reply *GetStateReply) {
+	reply.Term, reply.IsLeader = kv.rf.GetState()
 }
 
 // the tester calls Kill() when a KVServer instance won't
@@ -59,14 +122,13 @@ func (kv *KVServer) Append(args *PutAppendArgs, reply *PutAppendReply) {
 // about this, but it may be convenient (for example)
 // to suppress debug output from a Kill()ed instance.
 func (kv *KVServer) Kill() {
-	atomic.StoreInt32(&kv.dead, 1)
+	kv.dead.Store(true)
 	kv.rf.Kill()
 	// Your code here, if desired.
 }
 
 func (kv *KVServer) killed() bool {
-	z := atomic.LoadInt32(&kv.dead)
-	return z == 1
+	return kv.dead.Load()
 }
 
 // servers[] contains the ports of the set of
@@ -84,7 +146,10 @@ func (kv *KVServer) killed() bool {
 func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxraftstate int) *KVServer {
 	// call labgob.Register on structures you want
 	// Go's RPC library to marshall/unmarshall.
-	labgob.Register(Op{})
+	labgob.Register(&GetOp{})
+	labgob.Register(&PutOp{})
+	labgob.Register(&AppendOp{})
+	labgob.Register(&RpcArgs{})
 
 	kv := new(KVServer)
 	kv.me = me
@@ -96,6 +161,8 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	// You may need initialization code here.
+
+	go kv.apply()
 
 	return kv
 }

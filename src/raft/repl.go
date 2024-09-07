@@ -5,6 +5,8 @@
 package raft
 
 import (
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"6.5840/labrpc"
@@ -43,15 +45,36 @@ func newReplicator(peer *labrpc.ClientEnd, id int, ld *Leader) *Replicator {
 	}
 }
 
-func (repl *Replicator) call(args *AppendEntriesArgs) *AppendEntriesReply {
-	reply := &AppendEntriesReply {}
+func (repl *Replicator) appendEntries(args *AppendEntriesArgs) *AppendEntriesReply {
+	var atom_reply atomic.Value
+	var argsLock sync.RWMutex
+
 	f := func() bool {
-		return repl.peer.Call("Raft.AppendEntries", args, reply)
+		r := &AppendEntriesReply {}
+		argsLock.RLock()
+		ok := repl.peer.Call("Raft.AppendEntries", args, r)
+		argsLock.RUnlock()
+
+		if ok {
+			atom_reply.CompareAndSwap(nil, r)
+		}
+		return ok
 	}
-	for ok := rpcMultiTry(f); 
-	(!ok || !reply.Responsed) && repl.ld.active.Load();
-	ok = rpcMultiTry(f) {
+
+	var reply *AppendEntriesReply
+	for {
+		ok := rpcMultiTry(f)
+		if ok {
+			reply = atom_reply.Load().(*AppendEntriesReply)
+			if reply != nil && reply.Responsed {
+				break
+			}
+		}
+
 		time.Sleep(RPC_FAIL_WAITING)
+		argsLock.Lock()
+		args.LeaderCommit = repl.ld.rf.logs.LCI()
+		argsLock.Unlock()
 	}
 	return reply
 }
@@ -81,7 +104,7 @@ func (repl *Replicator) matchIndex() {
 
 			args := &AppendEntriesArgs {
 				Id: ld.rf.me,
-				Term: ld.rf.term,
+				Term: ld.rf.Term(),
 				LeaderCommit: logs.LCI(),
 				SendEntries: &SendEntries {
 					Entries: nil,
@@ -91,7 +114,7 @@ func (repl *Replicator) matchIndex() {
 				Snapshot: nil,
 			}
 			round: for ld.active.Load() {
-				reply := repl.call(args)
+				reply := repl.appendEntries(args)
 				if !repl.ld.active.Load() { return }
 
 				switch reply.EntryStatus {
@@ -146,7 +169,7 @@ func (repl *Replicator) start() {
 
 		args := &AppendEntriesArgs {
 			Id: ld.rf.me,
-			Term: ld.rf.term,
+			Term: ld.rf.Term(),
 			SendEntries: sendEntries,
 			LeaderCommit: logs.LCI(),
 			EntryType: ENTRY_T_LOG,
@@ -154,20 +177,7 @@ func (repl *Replicator) start() {
 		}
 
 		round: for ld.active.Load() {
-			args.LeaderCommit = logs.LCI()
-			reply := &AppendEntriesReply {}
-
-			rpcCall := func() bool {
-				return repl.peer.Call("Raft.AppendEntries", args, reply)
-			}
-
-			for ok := rpcMultiTry(rpcCall);
-			(!ok || !reply.Responsed) && ld.active.Load(); 
-			ok = rpcMultiTry(rpcCall) {
-				time.Sleep(RPC_FAIL_WAITING)
-				args.LeaderCommit = logs.LCI()
-				ld.rf.log("AppendEntries Call to peer %d try again", repl.peerId)
-			}
+			reply := repl.appendEntries(args)
 
 			if !ld.active.Load() { break replication }
 
@@ -176,7 +186,7 @@ func (repl *Replicator) start() {
 				ld.rf.fatal("AppendEntries RPC EntryStatus is default from %d", repl.peerId)
 				
 			case ENTRY_STALE:
-				ld.rf.log("%d said i'm stale, my term = %d, reply term = %d", repl.peerId, ld.rf.term, reply.Term)
+				ld.rf.log("%d said i'm stale, my term = %d, reply term = %d", repl.peerId, ld.rf.Term(), reply.Term)
 				ld.rf.tryPutEv(&StaleLeaderEvent { reply.Term }, ld)
 				return
 

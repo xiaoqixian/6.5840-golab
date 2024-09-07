@@ -26,7 +26,6 @@ import (
 	"io"
 	"log"
 	"math/rand"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -94,7 +93,7 @@ type Raft struct {
 	dead      atomic.Bool
 	majorN    int
 
-	term int
+	term atomic.Int32
 	voteFor int
 
 	role Role
@@ -114,20 +113,13 @@ type Raft struct {
 }
 
 func (rf *Raft) Term() int {
-	return rf.term
+	return int(rf.term.Load())
 }
 
 func (rf *Raft) setTerm(term int) {
 	// make sure the term increase monotonically.
-	if term <= rf.term {
-		_, file, line, ok := runtime.Caller(1)
-		if ok {
-			rf.fatal("[%s/%d] term %d <= rf.term %d", file, line, term, rf.term)
-		} else {
-			rf.fatal("term <= rf.term")
-		}
-	}
-	rf.term = term
+	assert(term > rf.Term())
+	rf.term.Store(int32(term))
 	// erase voteFor information everytime the term is modified.
 	rf.voteFor = -1
 	rf.persistState()
@@ -238,6 +230,9 @@ func (rf *Raft) processor() {
 		ev := <- rf.evCh
 		switch ev := ev.(type) {
 		case *TransEvent:
+			if ev.transFunc != nil {
+				rf.role = ev.transFunc(rf.role)
+			}
 			rf.role.activate()
 
 		case *SnapshotEvent:
@@ -248,12 +243,17 @@ func (rf *Raft) processor() {
 				ev.ch <- true
 			}
 
+		case *KillEvent:
+			rf.role.stop()
+			rf.dead.Store(true)
+			ev.ch <- struct{}{}
+
 		default:
 			if !rf.role.closed() {
 				rf.role.process(ev)
 			} else {
-				rf.log("Abandoned %s", typeName(ev))
-				abandonEv(ev)
+				rf.log("Discarded %s", typeName(ev))
+				discardEv(ev)
 			}
 		}
 	}
@@ -261,8 +261,7 @@ func (rf *Raft) processor() {
 
 func (rf *Raft) transRole(f func(Role) Role) {
 	if rf.role.stop() {
-		rf.role = f(rf.role)
-		rf.evCh <- &TransEvent{}
+		rf.evCh <- &TransEvent { f }
 	}
 }
 
@@ -335,8 +334,10 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // confusing debug output. any goroutine with a long-running loop
 // should call killed() to check whether it should stop.
 func (rf *Raft) Kill() {
-	rf.role.stop()
-	rf.dead.Store(true)
+	waitDeath := make(chan struct{})
+	rf.evCh <- &KillEvent { waitDeath }
+	<- waitDeath
+
 	rf.log("Now I'm dead")
 	<- rf.logs.applierDone
 	rf.log("applier done")
@@ -381,7 +382,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		evCh: make(chan Event, 1000),
 		majorN: len(peers)/2+1,
 		applyCh: applyCh,
-		term: 0,
 		voteFor: -1,
 	}
 
@@ -390,24 +390,27 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// read persistent data and init logs
 	var logs *Logs
+	var rfAttached chan struct{}
 	var state PersistentState
 	reader := bytes.NewReader(persister.ReadRaftState())
 	dec := gob.NewDecoder(reader)
 
 	switch err := dec.Decode(&state); err {
 	case nil:
-		logs = newLogs(rf, &state.Logs, snapshot)
-		rf.term = state.Term
+		logs, rfAttached = newLogs(rf, &state.Logs, snapshot)
+		rf.term.Store(state.Term)
 		rf.voteFor = state.VoteFor
 
 	case io.EOF:
-		logs = newLogs(rf, nil, snapshot)
+		logs, rfAttached = newLogs(rf, nil, snapshot)
 
 	default:
 		log.Fatal(err.Error())
 	}
 
 	logs.rf = rf
+	rfAttached <- struct{}{}
+
 	rf.logs = logs
 	rf.chLock.Lock()
 	
@@ -440,7 +443,7 @@ func (rf *Raft) tryPutEv(ev Event, role Role) bool {
 
 func (rf *Raft) _log(fn func(string, ...interface{}), format string, args ...interface{}) {
 	if logEnabled {
-		fn("[%s %d/%d/%d/%d/%d] %s", rf.role.name(), rf.me, rf.term, rf.logs.LLI(), rf.logs.LCI(), len(rf.logs.entries), fmt.Sprintf(format, args...))
+		fn("[%s %d/%d/%d/%d/%d] %s", rf.role.name(), rf.me, rf.term.Load(), rf.logs.LLI(), rf.logs.LCI(), len(rf.logs.entries), fmt.Sprintf(format, args...))
 	}
 }
 

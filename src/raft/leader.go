@@ -34,7 +34,7 @@ func (ld *Leader) activate() {
 	// add a noop log entry.
 	logIndex, _ := rf.logs.leaderAppendEntry(LogEntry {
 		CommandIndex: NOOP_INDEX,
-		Term: ld.rf.term,
+		Term: ld.rf.Term(),
 	})
 	ld.rf.log("Add NoopEntry with index = %d", logIndex)
 	ld.rc.watchIndex(logIndex)
@@ -62,18 +62,18 @@ func (ld *Leader) process(ev Event) {
 	switch ev := ev.(type) {
 	case *GetStateEvent:
 		ev.ch <- &NodeState {
-			term: ld.rf.term,
+			term: ld.rf.Term(),
 			isLeader: true,
 		}
 
 	case *StartCommandEvent:
 		logIndex, commandIndex := ld.rf.logs.leaderAppendEntry(LogEntry {
-			Term: ld.rf.term,
+			Term: ld.rf.Term(),
 			Content: ev.command,
 		})
 		ev.ch <- &StartCommandReply {
 			ok: true,
-			term: ld.rf.term,
+			term: ld.rf.Term(),
 			index: commandIndex,
 		}
 		ld.rf.log("Start command with index = %d, commandIndex = %d", logIndex, commandIndex)
@@ -110,16 +110,18 @@ func leaderFromCandidate(r Role) Role {
 func (ld *Leader) appendEntries(ev *AppendEntriesEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
-	reply.Term = ld.rf.term
+
+	myTerm := ld.rf.Term()
+	reply.Term = myTerm
 
 	switch {
-	case args.Term < ld.rf.term:
+	case args.Term < myTerm:
 		reply.EntryStatus = ENTRY_STALE
 
-	case args.Term == ld.rf.term:
+	case args.Term == myTerm:
 		ld.rf.fatal("Two leaders with a same term")
 
-	case args.Term > ld.rf.term:
+	case args.Term > myTerm:
 		reply.EntryStatus = ENTRY_HOLD
 		ld.rf.setTerm(args.Term)
 		ld.rf.transRole(followerFromLeader)
@@ -130,15 +132,15 @@ func (ld *Leader) requestVote(ev *RequestVoteEvent) {
 	defer func() { ev.ch <- true }()
 	args, reply := ev.args, ev.reply
 	ld.rf.log("RequestVote RPC from [%d/%d], lli = [%d/%d]", args.CandidateID, args.Term, args.LastLogInfo.Index, args.LastLogInfo.Term)
-	reply.Term = ld.rf.term
 
+	myTerm := ld.rf.Term()
 	switch {
-	case args.Term <= ld.rf.term:
-		assert(ld.rf.voteFor == -1)
+	case args.Term <= myTerm:
 		reply.VoteStatus = VOTE_DENIAL
+		reply.Term = myTerm
 		ld.rf.log("Vote denialed for %d", args.CandidateID)
 		
-	case args.Term > ld.rf.term:
+	case args.Term > myTerm:
 		ld.rf.setTerm(args.Term)
 		if ld.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			reply.VoteStatus = VOTE_GRANTED

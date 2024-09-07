@@ -46,7 +46,7 @@ func (flw *Follower) process(ev Event) {
 	switch ev := ev.(type) {
 	case *GetStateEvent:
 		ev.ch <- &NodeState {
-			term: flw.rf.term,
+			term: flw.rf.Term(),
 			isLeader: false,
 		}
 
@@ -82,13 +82,14 @@ func (flw *Follower) appendEntries(ev *AppendEntriesEvent) {
 	// 	flw.rf.log("HeartBeat from [%d/%d], PrevLogInfo = [%d/%d], LeaderCommit = %d", args.Id, args.Term, args.PrevLogInfo.Index, args.PrevLogInfo.Term, args.LeaderCommit)
 	// }
 	
-	if args.Term < flw.rf.term {
+	myTerm := flw.rf.Term()
+	if args.Term < myTerm {
 		reply.EntryStatus = ENTRY_STALE
-		reply.Term = flw.rf.term
+		reply.Term = myTerm
 		return
 	}
 
-	if args.Term > flw.rf.term {
+	if args.Term > myTerm {
 		flw.rf.setTerm(args.Term)
 	}
 	flw.tickHeartBeatTimer()
@@ -118,12 +119,13 @@ func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 	args, reply := ev.args, ev.reply
 
 	reply.VoterID = flw.rf.me
+	myTerm := flw.rf.Term()
 	switch {
-	case args.Term < flw.rf.term:
-		reply.Term = flw.rf.term
+	case args.Term < myTerm:
+		reply.Term = myTerm
 		reply.VoteStatus = VOTE_OTHER
 
-	case args.Term == flw.rf.term:
+	case args.Term == myTerm:
 		if args.CandidateID == flw.rf.voteFor {
 			reply.VoteStatus = VOTE_GRANTED
 			flw.rf.log("Receive a duplicate vote request, vote granted")
@@ -131,7 +133,7 @@ func (flw *Follower) requestVote(ev *RequestVoteEvent) {
 			reply.VoteStatus = VOTE_OTHER
 		}
 
-	case args.Term > flw.rf.term:
+	case args.Term > myTerm:
 		flw.rf.setTerm(args.Term)
 		if flw.rf.logs.atLeastUpToDate(args.LastLogInfo) {
 			flw.rf.log("Grant vote to %d", args.CandidateID)
